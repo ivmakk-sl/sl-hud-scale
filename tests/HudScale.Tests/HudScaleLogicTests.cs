@@ -146,6 +146,8 @@ public class HudScaleLogicTests
     [Theory]
     [InlineData("3\x1EOutSetting\x1EOPEN_SETTINGS\x1E{}")]
     [InlineData("1\x1E\x1E\x1E{}")]
+    [InlineData("3\u001ECoreUI1\u001EHUDSCALE_SET\u001E1.05,0.9")]
+    [InlineData("3\u001ECoreUI1\u001EHUDSCALE_SYNC\u001E")]
     [InlineData("")]
     [InlineData(null)]
     public void OtherMessagesAreNotModMessages(string message)

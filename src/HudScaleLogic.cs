@@ -11,16 +11,18 @@ namespace HudScale
         // Root.html joins the four fields of a message with U+001E: [0] the type id, [1] the page id.
         private const char FieldSeparator = '\u001E';
 
+        // The page id of the pause window with the settings window, which gets the HUD panel.
+        private const string SettingsPage = "OutSetting";
+
         // Type 1: the root page is ready (sent before the panels load, and again after a recovery).
-        // Type 2: a page is ready, with its page id. OutSetting is the pause window with the settings
-        // window, which gets the HUD panel.
+        // Type 2: a page is ready, with its page id.
         public static bool ShouldInstall(string message)
         {
             if (message == null) return false;
             string[] fields = message.Split(FieldSeparator);
             if (fields.Length < 2) return false;
             if (fields[0] == "1") return true;
-            return fields[0] == "2" && (fields[1] == "CoreUI1" || fields[1] == "CoreUI0" || fields[1] == "OutSetting");
+            return fields[0] == "2" && (fields[1] == "CoreUI1" || fields[1] == "CoreUI0" || fields[1] == SettingsPage);
         }
 
         // The game's own values: the "body { zoom: 1.3 }" of CoreUI1 and the unscaled font sizes.
@@ -35,7 +37,8 @@ namespace HudScale
         // game does not know these events, so the mod handles and stops each one.
         private const string ModEventPrefix = "HUDSCALE_";
 
-        // Reads a message of the settings panel. None: not a mod message. Set: both values, zoom first,
+        // Reads a message of the settings panel. None: not a mod message, which includes a mod event
+        // from a page other than the settings page. Set: both values, zoom first,
         // as "1.05,0.9". Sync: the settings window opened. Invalid: a mod message that is not usable.
         public static MessageKind TryParseMessage(string message, out float zoom, out float textScale)
         {
@@ -43,7 +46,7 @@ namespace HudScale
             textScale = 0f;
             if (message == null) return MessageKind.None;
             string[] fields = message.Split(FieldSeparator);
-            if (fields.Length < 3 || fields[0] != "3" || !fields[2].StartsWith(ModEventPrefix, StringComparison.Ordinal)) return MessageKind.None;
+            if (fields.Length < 3 || fields[0] != "3" || fields[1] != SettingsPage || !fields[2].StartsWith(ModEventPrefix, StringComparison.Ordinal)) return MessageKind.None;
             if (fields.Length < 4) return MessageKind.Invalid;
             if (fields[2] == "HUDSCALE_SYNC") return MessageKind.Sync;
             if (fields[2] != "HUDSCALE_SET") return MessageKind.Invalid;

@@ -97,9 +97,14 @@ namespace HudScale
         {
             if (!FileCheck.Changed()) return;
             if (Verbose.Value) Log.LogDebug("HUD Scale: the config file changed, reading it again");
-            try { Settings.Reload(); }
+            // The record comes only after a good read, so a file that an editor is still writing is read
+            // again at the next check.
+            try
+            {
+                Settings.Reload();
+                FileCheck.Record();
+            }
             catch (Exception e) { Log.LogWarning($"HUD Scale: could not read the config file: {e.Message}"); }
-            FileCheck.Record();
         }
 
         // The install call with the current values, and the limits and the default of each config entry.
@@ -160,9 +165,10 @@ namespace HudScale
     {
         private static bool Prefix(Vuplex.WebView.EventArgs<string> eventArgs)
         {
+            var kind = MessageKind.None;
             try
             {
-                var kind = HudScaleLogic.TryParseMessage(eventArgs?.Value, out float zoom, out float textScale);
+                kind = HudScaleLogic.TryParseMessage(eventArgs?.Value, out float zoom, out float textScale);
                 if (kind == MessageKind.None) return true;
                 if (Plugin.Verbose.Value) Plugin.Log.LogDebug($"HUD Scale message: {kind} {zoom} {textScale}");
                 if (kind == MessageKind.Set)
@@ -179,7 +185,9 @@ namespace HudScale
             catch (Exception e)
             {
                 Plugin.Log.LogWarning($"HUD Scale: settings message failed: {e}");
-                return false;
+                // A game message always goes on to the game. A mod message does not, because the game
+                // does not know its event.
+                return kind == MessageKind.None;
             }
         }
     }
