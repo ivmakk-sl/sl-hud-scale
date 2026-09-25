@@ -487,6 +487,7 @@ if (!gameFilesExist) {
     { pageId: 'CoreUI1', name: 'phone', font: '.icon-sq', icon: '.icon-svg' },
     { pageId: 'CoreUI0', name: 'timer', font: '.timer-box .icon-svg', icon: '.icon-svg' },
     { pageId: 'CoreUI0', name: 'camera', font: '.map-trigger-btn', icon: '.icon-svg-stroke' },
+    { pageId: 'CoreUI0', name: 'plan-mode', font: '.map-trigger-btn', icon: '.icon-svg' },
     { pageId: 'CoreUI0', name: 'survival log', font: '.log-btn-right', icon: '.icon-svg' }
   ];
 
@@ -547,6 +548,25 @@ if (!gameFilesExist) {
 
     assert.equal(writes, 0);
     assert.equal(stroke.style.getPropertyValue('width'), '1.07em');
+  });
+
+  test('CoreUI1: text 0.8 divides the em min and max sizes, and text 1 restores them', async (t) => {
+    const win = await loadPage(t, 'CoreUI1');
+    const style = win.document.createElement('style');
+    style.textContent = '.hs-limits { min-width: 1em; min-height: 1em; max-width: 2em; max-height: 2em; }';
+    win.document.head.appendChild(style);
+    const rule = style.sheet.cssRules[0];
+    const root = makeRoot(t, { CoreUI1: win });
+
+    run(root, installCall(null, 0.8));
+    assert.deepEqual(
+      ['min-width', 'min-height', 'max-width', 'max-height'].map((p) => rule.style.getPropertyValue(p)),
+      ['1.25em', '1.25em', '2.5em', '2.5em']);
+
+    run(root, installCall(null, 1));
+    assert.deepEqual(
+      ['min-width', 'min-height', 'max-width', 'max-height'].map((p) => rule.style.getPropertyValue(p)),
+      ['1em', '1em', '2em', '2em']);
   });
 
   test('CoreUI1: a rem width and the em gap of .attr-name keep their text', async (t) => {
