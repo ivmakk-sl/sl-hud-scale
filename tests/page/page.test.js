@@ -28,7 +28,9 @@ const PAGE_JS_PATH = path.join(__dirname, '..', '..', 'src', 'page.js');
 const OUT_SETTING = path.join(UI_DIR, 'OutSetting', 'OutSetting.html');
 const PAGE_FILES = { ...PAGES, OutSetting: OUT_SETTING };
 
-const gameFilesExist = Object.values(PAGE_FILES).every((p) => fs.existsSync(p));
+// The tests skip only when the game is not installed. When the game is there but a page file is
+// missing (for example after a game update), each test of that page fails.
+const gameFilesExist = fs.existsSync(UI_DIR);
 
 if (!gameFilesExist) {
   test('page.js against the HUD pages', { skip: `game files not found under SL_GAME_DIR (${GAME_DIR}); set SL_GAME_DIR to the game folder` }, () => {});
