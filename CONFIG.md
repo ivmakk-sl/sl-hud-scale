@@ -16,7 +16,7 @@ To include debug entries in `BepInEx\LogOutput.log`, add `Debug` to `LogLevels` 
 
 | Setting | Default | Values | What it does |
 |---|---|---|---|
-| `HudZoom` | `1.0` | Number from `0.5` to `3.0` | Scales the main HUD's text, icons, and boxes together. This includes the story, events, plant and trap lists, stats, and buttons. The game uses `1.3`. The default, `1.0`, makes the main HUD about 23% smaller. Use `1.3` to keep the game's size. This setting does not scale the top timer box. |
+| `HudZoom` | `1.0` | Number from `0.5` to `3.0` | Scales the main HUD's text, icons, and boxes together. This includes the story, events, plant and trap lists, stats, and buttons. The game uses by default `1.3`. The mod's default, `1.0`, makes the main HUD about 23% smaller. Use `1.3` to keep the game's size. |
 | `HudTextScale` | `1.0` | Number from `0.5` to `2.0` | Multiplies HUD font sizes, which affects text and icons that use font sizes. The boxes keep their size. The default preserves the original font sizes. Use `0.9` for font sizes 10% smaller. Values above `1.0` can cause text to exceed its boxes. |
 
 BepInEx replaces values outside the allowed range with the nearest limit and saves the corrected values to the config file.
