@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="..\..\src\HudScaleLogic.cs" Link="HudScaleLogic.cs" />
+    <Compile Include="..\..\src\ConfigFileCheck.cs" Link="ConfigFileCheck.cs" />
   </ItemGroup>
 
   <ItemGroup>

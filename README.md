@@ -15,7 +15,9 @@ The cooking window, the bag, event pop-ups, and other windows keep their size. L
 
 ## Configuration
 
-The mod creates `BepInEx\config\com.ivmakk.survivallog.hudscale.cfg` when you first start the game with the mod installed. Edit the settings in a text editor. Restart the game to apply your changes. See [CONFIG.md](CONFIG.md) for each setting, its default, and its limits.
+Change the settings in the game: load a save, press Esc, and open Settings. The HUD panel has a Scale slider (`HudZoom`) and a Text Scale slider (`HudTextScale`). The HUD shows the new value while you drag, and a release saves it to the config file.
+
+The config file is `BepInEx\config\com.ivmakk.survivallog.hudscale.cfg`. The mod creates it when you first start the game with the mod installed. A change of the file in a text editor applies when you open the settings window or load a save, with no restart. See [CONFIG.md](CONFIG.md) for each setting, its default, and its limits.
 
 ## Requirements
 
@@ -51,7 +53,7 @@ The choice of which web view message starts the page script, and the call it get
 dotnet test tests/HudScale.Tests
 ```
 
-The page script `src/page.js` has its own test, which runs it against the real `CoreUI1.html` and `CoreUI0.html` of the installed game (Node with jsdom). Run it after a game update. It needs the game install, and `SL_GAME_DIR` overrides the default Steam path:
+The page script `src/page.js` has its own test, which runs it against the real `CoreUI1.html`, `CoreUI0.html`, and `OutSetting.html` of the installed game (Node with jsdom). Run it after a game update. It needs the game install, and `SL_GAME_DIR` overrides the default Steam path:
 
 ```
 cd tests/page
