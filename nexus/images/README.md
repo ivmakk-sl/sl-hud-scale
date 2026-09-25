@@ -6,4 +6,4 @@ Nexus page images, tracked in the repo. The background is 1300x372, the gallery 
 - `sl-hud-scale-thumb.jpg` - title card (1920x1080): the "HUD Scale" wordmark beside a resize icon. Pick this as the mods-grid thumbnail.
 - `sl-hud-scale-comparison-2.jpg` - before and after (1920x1080): the HUD at the game's values ("Default", `HudZoom: 1.3`, `HudTextScale: 1`) beside `HudZoom: 1` and `HudTextScale: 0.8` ("Mod"). The quest lines that end in "..." at the game's values show in full. The first gallery image after the title card.
 - `sl-hud-scale-comparison-1.jpg` - before and after (1920x1080): the HUD at the game's values beside `HudZoom: 1` and `HudTextScale: 1` (the mod's config defaults). The zoom alone makes the HUD smaller, but the text still ends in "...".
-- `sl-hud-scale-settings.jpg` - the settings window (1920x1080) in the pause state, with the HUD panel marked below Action Feedback, at the game's values (Scale `1.30`, Text Scale `1.00`).
+- `sl-hud-scale-settings.jpg` - the settings window (1920x1080) during play, with the HUD panel marked below Action Feedback, at the game's values (Scale `1.30`, Text Scale `1.00`).

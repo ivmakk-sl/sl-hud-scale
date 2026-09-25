@@ -1,1 +1,1 @@
-A smaller, less crowded HUD in any game language, with adjustable HUD scale and text size.
+Adds in-game HUD and text scale sliders, with a smaller HUD by default: zoom 1.0 instead of the game's 1.3.

@@ -1,28 +1,42 @@
 # Configuration
 
-Change the settings in the game: load a save, press Esc, and open Settings. The HUD panel below Action Feedback has a Scale slider (`HudZoom`) and a Text Scale slider (`HudTextScale`). The HUD shows the new value while you drag. When you release the slider, the mod saves the value to the config file. Click a number to set its default again. The mark under each slider shows the default.
+## In the game
 
-The mod also creates `BepInEx\config\com.ivmakk.survivallog.hudscale.cfg` when you first start the game with the mod installed. You can edit the settings in a text editor while the game runs. A change of the file applies when you open the settings window or load a save. Close the settings window before you edit the file, because a slider release saves the values of the window.
+1. Load a save.
+2. Press Esc.
+3. Open **Settings**.
+4. Adjust **Scale** or **Text Scale** in the **HUD** panel below **Action Feedback**.
 
-By default, the mod sets `HudZoom = 1.0` to reduce the game's oversized main HUD. This makes it about 23% smaller than the game's zoom of `1.3`. If you also want smaller text, try `HudTextScale = 0.9`. Smaller settings can reduce overlap, but some text can still exceed its boxes. To keep the game's HUD, set `HudZoom = 1.3` and `HudTextScale = 1.0`. With these values, the mod changes nothing.
+The HUD previews your changes while you drag. Release the slider to save the value. Closing the settings window also saves an unsaved preview. Click a slider's number to restore the mod's default. The mark under each slider shows that default. The HUD panel is available only after a save loads.
 
-## General
+| Slider | Config key | Mod default | Range | What it does |
+|---|---|---|---|---|
+| **Scale** | `HudZoom` | `1.00` | `0.50` to `3.00` | Scales the main HUD's text, icons, and boxes together. This includes the story, events, plant and trap lists, stats, and buttons. The game uses `1.30`. The mod's default makes the main HUD about 23% smaller. |
+| **Text Scale** | `HudTextScale` | `1.00` | `0.50` to `2.00` | Multiplies HUD font sizes, including text and icons that use font sizes. The boxes keep their size. Use `0.90` for font sizes 10% smaller. Values above `1.00` can cause text to exceed its boxes. |
 
-| Setting | Default | Values | What it does |
-|---|---|---|---|
-| `Verbose` | `false` | `true` / `false` | Logs each installation of the HUD script and its result at Debug level. Leave `false` during normal play. |
+The sliders move in steps of `0.05`. Both sliders affect text size in the main HUD. Smaller values can reduce overlap, but some text can still exceed its boxes.
+
+To restore the game's HUD sizes, set **Scale** to `1.30` and **Text Scale** to `1.00`. The HUD panel remains available. Clicking the numbers restores the mod's defaults, which are `1.00` for both sliders.
+
+**Text Scale** also scales text that other mods define with pixel font sizes in HUD stylesheets, including Trapline's grid. It does not affect the weather tooltip's description line or icons with fixed image dimensions. Other windows and labels over furniture and characters in the world keep their size with either slider.
+
+## In the config file
+
+The mod creates `BepInEx\config\com.ivmakk.survivallog.hudscale.cfg` when you first start the game with the mod installed. The sliders save their values in the `[HUD]` section of this file.
+
+You can edit the file while the game runs:
+
+1. Close the settings window to prevent its sliders from overwriting your file edits.
+2. Edit the values in a text editor.
+3. Save the file.
+4. Open the settings window or load a save to apply your changes.
+
+No restart is needed. File edits can use values between slider steps, such as `HudZoom = 1.03`. The number beside the slider shows that value until you move the slider.
+
+BepInEx limits values to the allowed range. For example, `HudZoom = 5` applies as `3.0`. When this changes the current value, BepInEx also saves the corrected value to the file.
+
+## Debug logging
+
+The `[General]` section contains `Verbose`, which accepts `true` or `false` and defaults to `false`. Set it to `true` to log each installation of the HUD script and its result at Debug level. Leave it `false` during normal play.
 
 To include debug entries in `BepInEx\LogOutput.log`, add `Debug` to `LogLevels` under `[Logging.Disk]` in `BepInEx\config\BepInEx.cfg`.
-
-## HUD
-
-| Setting | Default | Values | What it does |
-|---|---|---|---|
-| `HudZoom` | `1.0` | Number from `0.5` to `3.0` | Scales the main HUD's text, icons, and boxes together. This includes the story, events, plant and trap lists, stats, and buttons. The game uses by default `1.3`. The mod's default, `1.0`, makes the main HUD about 23% smaller. Use `1.3` to keep the game's size. |
-| `HudTextScale` | `1.0` | Number from `0.5` to `2.0` | Multiplies HUD font sizes, which affects text and icons that use font sizes. The boxes keep their size. The default preserves the original font sizes. Use `0.9` for font sizes 10% smaller. Values above `1.0` can cause text to exceed its boxes. |
-
-BepInEx replaces values outside the allowed range with the nearest limit and saves the corrected values to the config file.
-
-Both settings affect text size in the main HUD. `HudTextScale` also applies to text in the top timer box and unlock notifications. It scales text that other mods define with pixel font sizes in HUD stylesheets, including Trapline's grid.
-
-The weather tooltip's description line does not respond to `HudTextScale`, because the game sets its font size directly on the element. Icons with fixed image dimensions do not respond to `HudTextScale` either. Other windows and labels over furniture and characters in the world keep their size with either setting.
