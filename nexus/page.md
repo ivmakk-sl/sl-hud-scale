@@ -24,4 +24,4 @@ Tracks the mod's Nexus page details.
 - Full description: `description.bbcode` (paste into the editor's raw BBCode mode).
 - Changelog: none for `1.0.0`. The first release has nothing to change. `changelog.txt` starts with the release that follows.
 - Background: `images/sl-hud-scale-banner.jpg` (1300x372). Set as the mod page background.
-- Gallery images (1920x1080), in this order: `images/sl-hud-scale-thumb.jpg` (title card, pick as the mods-grid thumbnail), `images/sl-hud-scale-comparison-2.jpg` (zoom and text scale), `images/sl-hud-scale-comparison-1.jpg` (zoom only). See `images/README.md` for each role.
+- Gallery images (1920x1080), in this order: `images/sl-hud-scale-thumb.jpg` (title card, pick as the mods-grid thumbnail), `images/sl-hud-scale-comparison-2.jpg` (zoom and text scale), `images/sl-hud-scale-comparison-1.jpg` (zoom only), `images/sl-hud-scale-settings.jpg` (the HUD panel in the settings window). See `images/README.md` for each role.
