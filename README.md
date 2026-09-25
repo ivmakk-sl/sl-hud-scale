@@ -5,11 +5,11 @@ HUD Scale adds HUD scale and text size sliders to the settings window in *Surviv
 I made this mod because the HUD feels oversized in English. The layout appears to favor compact Chinese text. English labels overlap, quest lines end in "...", and plant and trap names wrap onto two lines. The smaller HUD greatly reduces overlap in my testing. Some text can still exceed its boxes.
 
 - **Scale** resizes the main HUD's text, icons, and boxes together. This includes the story, events, plant and trap lists, stats, and buttons.
-- **Text Scale** provides a secondary adjustment for text and icons that use font sizes. The boxes keep their size. Its default, `1.0`, preserves the original font sizes.
+- **Text Scale** provides a secondary adjustment for the HUD text. Icons and boxes keep their size, so you can make the text smaller without smaller icons. Its default, `1.0`, preserves the original font sizes.
 
 If you also want smaller text, try **Text Scale** at `0.90`. Both sliders affect text size in the main HUD. To restore the game's HUD sizes, set **Scale** to `1.30` and **Text Scale** to `1.00`. The HUD panel remains available in the settings window.
 
-Text that other mods define with pixel font sizes in HUD stylesheets also scales, including Trapline's grid. **Text Scale** does not affect the weather tooltip's description line or icons with fixed image dimensions.
+Text that other mods define with pixel font sizes in HUD stylesheets also scales, including Trapline's grid. **Text Scale** does not affect the weather tooltip's description line.
 
 The cooking window, the bag, event pop-ups, and other windows keep their size. Labels over furniture and characters in the world, such as dish names and timers, also keep their size. The mod does not edit the game's original files or change the save format.
 

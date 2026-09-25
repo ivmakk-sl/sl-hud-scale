@@ -12,13 +12,13 @@ The HUD previews your changes while you drag. Release the slider to save the val
 | Slider | Config key | Mod default | Range | What it does |
 |---|---|---|---|---|
 | **Scale** | `HudZoom` | `1.00` | `0.50` to `3.00` | Scales the main HUD's text, icons, and boxes together. This includes the story, events, plant and trap lists, stats, and buttons. The game uses `1.30`. The mod's default makes the main HUD about 23% smaller. |
-| **Text Scale** | `HudTextScale` | `1.00` | `0.50` to `2.00` | Multiplies HUD font sizes, including text and icons that use font sizes. The boxes keep their size. Use `0.90` for font sizes 10% smaller. Values above `1.00` can cause text to exceed its boxes. |
+| **Text Scale** | `HudTextScale` | `1.00` | `0.50` to `2.00` | Multiplies HUD font sizes. Icons and boxes keep their size. Use `0.90` for font sizes 10% smaller. Values above `1.00` can cause text to exceed its boxes. |
 
 The sliders move in steps of `0.05`. Both sliders affect text size in the main HUD. Smaller values can reduce overlap, but some text can still exceed its boxes.
 
 To restore the game's HUD sizes, set **Scale** to `1.30` and **Text Scale** to `1.00`. The HUD panel remains available. Clicking the numbers restores the mod's defaults, which are `1.00` for both sliders.
 
-**Text Scale** also scales text that other mods define with pixel font sizes in HUD stylesheets, including Trapline's grid. It does not affect the weather tooltip's description line or icons with fixed image dimensions. Other windows and labels over furniture and characters in the world keep their size with either slider.
+**Text Scale** also scales text that other mods define with pixel font sizes in HUD stylesheets, including Trapline's grid. It does not affect the weather tooltip's description line. Other windows and labels over furniture and characters in the world keep their size with either slider.
 
 ## In the config file
 

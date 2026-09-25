@@ -4,7 +4,7 @@
        This file names the plugin and adds the assemblies that only this mod uses. -->
   <PropertyGroup>
     <AssemblyName>HudScale</AssemblyName>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
   </PropertyGroup>
 
   <!-- The HUD is a page of the Vuplex web view. -->

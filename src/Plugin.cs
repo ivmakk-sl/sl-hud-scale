@@ -10,7 +10,7 @@ using HarmonyLib;
 
 namespace HudScale
 {
-    [BepInPlugin(PluginGuid, "HUD Scale", "1.1.0")]
+    [BepInPlugin(PluginGuid, "HUD Scale", "1.1.1")]
     [BepInProcess("SurvivalLog.exe")]
     public sealed class Plugin : BasePlugin
     {
@@ -36,7 +36,7 @@ namespace HudScale
             HudTextScale = Config.Bind(
                 "HUD", "HudTextScale", HudScaleLogic.DefaultTextScale,
                 new ConfigDescription(
-                    "Multiply HUD font sizes, including text and icons that use font sizes. The boxes keep their size. The default, 1.0, preserves the original font sizes. This includes text in the top timer box and unlock notifications. It excludes the weather tooltip's description line, icons with fixed image dimensions, other windows, and world labels. The HUD panel of the settings window (Esc, then Settings) also changes this value. A change of this file applies when the settings window opens or a save loads.",
+                    "Multiply HUD font sizes. Icons and boxes keep their size. The default, 1.0, preserves the original font sizes. This includes text in the top timer box and unlock notifications. It excludes the weather tooltip's description line, other windows, and world labels. The HUD panel of the settings window (Esc, then Settings) also changes this value. A change of this file applies when the settings window opens or a save loads.",
                     new AcceptableValueRange<float>(0.5f, 2.0f)));
             Settings = Config;
             FileCheck = new ConfigFileCheck(Config.ConfigFilePath);
