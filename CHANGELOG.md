@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-25
+
+### Added
+
+- A HUD panel in the settings window (Esc, then Settings, after a save loads), with a Scale slider for `HudZoom` and a Text Scale slider for `HudTextScale`. The HUD shows the new value while you drag, and a release saves it to the config file. A click on a number sets the default again.
+
+### Changed
+
+- A change of the config file applies when the settings window opens or a save loads. A restart is no longer necessary.
+
 ## [1.0.0] - 2026-09-25
 
 ### Added

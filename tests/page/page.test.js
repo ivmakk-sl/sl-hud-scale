@@ -1,5 +1,6 @@
-// Runs page.js against the game's own CoreUI1.html and CoreUI0.html, so a game update that changes
-// how the HUD sets its font sizes shows up here instead of only in the game.
+// Runs page.js against the game's own CoreUI1.html, CoreUI0.html, and OutSetting.html, so a game
+// update that changes how the HUD sets its font sizes, or how the settings window is built, shows up
+// here instead of only in the game.
 //
 // page.js runs in the root page (Root.html) and reaches each HUD page through the iframe whose id is
 // the page id. This test loads each HUD page in its own jsdom window and gives a small root window a
@@ -23,7 +24,13 @@ const PAGES = {
 };
 const PAGE_JS_PATH = path.join(__dirname, '..', '..', 'src', 'page.js');
 
-const gameFilesExist = Object.values(PAGES).every((p) => fs.existsSync(p));
+// The pause window with the settings window, which gets the HUD panel. It is not a HUD page.
+const OUT_SETTING = path.join(UI_DIR, 'OutSetting', 'OutSetting.html');
+const PAGE_FILES = { ...PAGES, OutSetting: OUT_SETTING };
+
+// The tests skip only when the game is not installed. When the game is there but a page file is
+// missing (for example after a game update), each test of that page fails.
+const gameFilesExist = fs.existsSync(UI_DIR);
 
 if (!gameFilesExist) {
   test('page.js against the HUD pages', { skip: `game files not found under SL_GAME_DIR (${GAME_DIR}); set SL_GAME_DIR to the game folder` }, () => {});
@@ -33,7 +40,7 @@ if (!gameFilesExist) {
   // The HUD pages start their own requestAnimationFrame loops, which keep a jsdom window alive.
   // t.after closes each window when its test is done.
   async function loadPage(t, pageId) {
-    const file = PAGES[pageId];
+    const file = PAGE_FILES[pageId];
     const dom = new JSDOM(fs.readFileSync(file, 'utf8'), {
       url: url.pathToFileURL(file).href,
       runScripts: 'dangerously',
@@ -67,9 +74,22 @@ if (!gameFilesExist) {
     return vm.runInContext(pageJs + ';' + expr, root, { filename: 'page.js' });
   }
 
-  // Sets the factors that install() stores, for the tests of apply() alone.
+  // The state object that C# sends in the install call (HudScaleLogic.BuildCall). A value of null
+  // stands for the game's value of that setting, which means "leave the page as the game has it".
+  function state(zoom, textScale) {
+    const z = zoom == null ? 1.3 : zoom;
+    const x = textScale == null ? 1 : textScale;
+    return `{zoom:{value:${z},min:0.5,max:3,def:1,game:1.3},text:{value:${x},min:0.5,max:2,def:1,game:1},` +
+      'labels:{title:"HUD",zoom:"Scale",text:"Text Scale"}}';
+  }
+
+  function installCall(zoom, textScale) {
+    return `window.__hudscale.install(${state(zoom, textScale)})`;
+  }
+
+  // Sets the state that install() stores, for the tests of apply() alone.
   function setFactors(root, zoom, textScale) {
-    run(root, `window.__hudscale.zoom = ${zoom}; window.__hudscale.textScale = ${textScale};`);
+    run(root, `window.__hudscale.state = ${state(zoom, textScale)};`);
   }
 
   // Each style rule with a px font size, as [rule, value], in document order, nested rules included.
@@ -256,7 +276,7 @@ if (!gameFilesExist) {
     const rule1 = fontOf12pxRule(core1);
     const root = makeRoot(t, { CoreUI1: core1, CoreUI0: core0 });
 
-    assert.equal(run(root, 'window.__hudscale.install(null,0.9)'), 'installed');
+    assert.equal(run(root, installCall(null, 0.9)), 'installed');
 
     assert.equal(rule1.style.getPropertyValue('font-size'), '10.8px');
     assert.equal(rule0.style.getPropertyValue('font-size'), Math.round(parseFloat(original0) * 90) / 100 + 'px');
@@ -283,7 +303,7 @@ if (!gameFilesExist) {
     const frames = {};
     const root = makeRoot(t, frames);
     const calls = stubNotifyPageReady(root, frames);
-    run(root, 'window.__hudscale.install(null,0.9)');
+    run(root, installCall(null, 0.9));
 
     frames.CoreUI1 = await loadPage(t, 'CoreUI1');
     fontOf12pxRule0(frames.CoreUI1);
@@ -297,7 +317,7 @@ if (!gameFilesExist) {
     const root = makeRoot(t, frames);
     const calls = stubNotifyPageReady(root, frames);
     fontOf12pxRule0(frames.CoreUI1);
-    run(root, 'window.__hudscale.install(null,null)');
+    run(root, installCall(null, null));
 
     root.notifyPageReady('Cooking');
 
@@ -308,8 +328,8 @@ if (!gameFilesExist) {
     const frames = {};
     const root = makeRoot(t, frames);
     const calls = stubNotifyPageReady(root, frames);
-    run(root, 'window.__hudscale.install(null,0.9)');
-    run(root, 'window.__hudscale.install(null,0.8)');
+    run(root, installCall(null, 0.9));
+    run(root, installCall(null, 0.8));
 
     frames.CoreUI1 = await loadPage(t, 'CoreUI1');
     fontOf12pxRule0(frames.CoreUI1);
@@ -318,11 +338,83 @@ if (!gameFilesExist) {
     assert.deepEqual(calls, [{ pageId: 'CoreUI1', size: '9.6px' }]);
   });
 
+  // The exact strings that the C# tests assert for HudScaleLogic.BuildCall, so the two sides cannot
+  // drift apart.
+  const CSHARP_DEFAULTS_CALL = 'window.__hudscale.install({zoom:{value:1,min:0.5,max:3,def:1,game:1.3},' +
+    'text:{value:1,min:0.5,max:2,def:1,game:1},labels:{title:"HUD",zoom:"Scale",text:"Text Scale"}})';
+  const CSHARP_GAME_VALUES_CALL = CSHARP_DEFAULTS_CALL.replace('{value:1,min:0.5,max:3', '{value:1.3,min:0.5,max:3');
+
+  test('the C# call at the mod defaults zooms CoreUI1 to 1 and leaves the text', async (t) => {
+    const win = await loadPage(t, 'CoreUI1');
+    const writes = spyZoom(win);
+    const before = pxFontRules(win);
+    const root = makeRoot(t, { CoreUI1: win });
+
+    assert.equal(run(root, CSHARP_DEFAULTS_CALL), 'installed');
+
+    assert.deepEqual(writes, ['1']);
+    for (const [rule, original] of before) assert.equal(rule.style.getPropertyValue('font-size'), original);
+  });
+
+  test('the C# call at the game values changes no style of a HUD page', async (t) => {
+    const core1 = await loadPage(t, 'CoreUI1');
+    const core0 = await loadPage(t, 'CoreUI0');
+    const writes = spyZoom(core1);
+    const resize = countResize(core1);
+    const before1 = pxFontRules(core1);
+    const before0 = pxFontRules(core0);
+    const root = makeRoot(t, { CoreUI1: core1, CoreUI0: core0 });
+
+    assert.equal(run(root, CSHARP_GAME_VALUES_CALL), 'installed');
+
+    assert.deepEqual(writes, []);
+    assert.equal(resize.n, 0);
+    for (const [rule, original] of [...before1, ...before0]) assert.equal(rule.style.getPropertyValue('font-size'), original);
+  });
+
+  test('CoreUI1: zoom back to the game value removes the inline zoom', async (t) => {
+    const win = await loadPage(t, 'CoreUI1');
+    const writes = spyZoom(win);
+    const root = makeRoot(t, { CoreUI1: win });
+    run(root, installCall(1.1, null));
+
+    run(root, installCall(1.3, null));
+
+    assert.deepEqual(writes, ['1.1', '']);
+  });
+
+  test('CoreUI1: text back to the game value restores each original size, also of a later mod style', async (t) => {
+    const win = await loadPage(t, 'CoreUI1');
+    const before = pxFontRules(win);
+    const root = makeRoot(t, { CoreUI1: win });
+    run(root, installCall(null, 0.9));
+    const modSize = await addModStyle(win, '.mod-c { font-size: 10px; }');
+    const modRule = [...win.document.styleSheets].at(-1).cssRules[0];
+    assert.equal(modSize, '9px');
+
+    run(root, installCall(null, 1));
+
+    for (const [rule, original] of before) assert.equal(rule.style.getPropertyValue('font-size'), original);
+    assert.equal(modRule.style.getPropertyValue('font-size'), '10px');
+  });
+
+  test('CoreUI1: text 1, then 0.9, then 1 gives the original sizes', async (t) => {
+    const win = await loadPage(t, 'CoreUI1');
+    const before = pxFontRules(win);
+    const root = makeRoot(t, { CoreUI1: win });
+
+    run(root, installCall(null, 1));
+    run(root, installCall(null, 0.9));
+    run(root, installCall(null, 1));
+
+    for (const [rule, original] of before) assert.equal(rule.style.getPropertyValue('font-size'), original);
+  });
+
   test('install returns the error of a HUD page that fails', (t) => {
     const broken = { document: { get styleSheets() { throw new Error('boom'); } } };
     const root = makeRoot(t, { CoreUI1: broken });
 
-    assert.equal(run(root, 'window.__hudscale.install(null,0.9)'), 'error: CoreUI1: boom');
+    assert.equal(run(root, installCall(null, 0.9)), 'error: CoreUI1: boom');
   });
 
   test('CoreUI1: text scale scales a px font size inside @media', async (t) => {
@@ -355,4 +447,384 @@ if (!gameFilesExist) {
       }
     });
   }
+
+  // The HUD panel of the settings window (OutSetting).
+
+  function panelOf(win) {
+    return win.document.getElementById('hudscale-panel');
+  }
+
+  test('OutSetting: install adds the HUD panel at the end of the first settings block, after the Action Feedback hint', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    const root = makeRoot(t, { OutSetting: win });
+
+    assert.equal(run(root, installCall(null, null)), 'installed');
+
+    const section = win.document.querySelector('#settingsModal .settings-section');
+    const panel = panelOf(win);
+    assert.ok(panel, 'no panel');
+    assert.equal(section.lastElementChild, panel);
+    assert.ok(panel.previousElementSibling.classList.contains('setting-hint'));
+  });
+
+  function rowOf(win, key) {
+    const row = panelOf(win).querySelector(`[data-hudscale="${key}"]`);
+    return {
+      input: row.querySelector('input'),
+      label: row.querySelector('.setting-label').textContent,
+      number: row.querySelector('.hudscale-value').textContent
+    };
+  }
+
+  test('OutSetting: the volume sliders stay first, and the HUD sliders come after them', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    const root = makeRoot(t, { OutSetting: win });
+    const [music, effects] = win.document.querySelectorAll('input[type=range]');
+
+    run(root, installCall(1.1, 0.9));
+
+    const ranges = win.document.querySelectorAll('input[type=range]');
+    assert.equal(ranges.length, 4);
+    assert.equal(ranges[0], music);
+    assert.equal(ranges[1], effects);
+    assert.equal(ranges[2], rowOf(win, 'zoom').input);
+    assert.equal(ranges[3], rowOf(win, 'text').input);
+  });
+
+  test('OutSetting: each HUD slider has the limits, the value, and the step, and its number has two decimals', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    const root = makeRoot(t, { OutSetting: win });
+
+    run(root, installCall(1.1, 0.9));
+
+    const zoom = rowOf(win, 'zoom');
+    const text = rowOf(win, 'text');
+    assert.deepEqual([zoom.input.min, zoom.input.max, zoom.input.step, zoom.input.value], ['0.5', '3', '0.05', '1.1']);
+    assert.deepEqual([text.input.min, text.input.max, text.input.step, text.input.value], ['0.5', '2', '0.05', '0.9']);
+    assert.equal(zoom.number, '1.10');
+    assert.equal(text.number, '0.90');
+  });
+
+  test('OutSetting: a value off the step grid shows its true value on the number', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    const root = makeRoot(t, { OutSetting: win });
+
+    // jsdom does not snap a range value to the step, so only the number is checked.
+    run(root, installCall(1.03, null));
+
+    assert.equal(rowOf(win, 'zoom').number, '1.03');
+  });
+
+  test('OutSetting: a second install changes the labels and the values and adds no second panel', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    const root = makeRoot(t, { OutSetting: win });
+    run(root, installCall(null, null));
+    assert.deepEqual([panelOf(win).querySelector('.hudscale-title').textContent, rowOf(win, 'zoom').label, rowOf(win, 'text').label],
+      ['HUD', 'Scale', 'Text Scale']);
+
+    run(root, 'window.__hudscale.install(' + state(1.2, null).replace(
+      'labels:{title:"HUD",zoom:"Scale",text:"Text Scale"}', 'labels:{title:"\u4E3B\u754C\u9762",zoom:"\u7F29\u653E",text:"\u6587\u5B57\u7F29\u653E"}') + ')');
+
+    assert.equal(win.document.querySelectorAll('#hudscale-panel').length, 1);
+    assert.equal(win.document.querySelectorAll('#hudscale-style').length, 1);
+    assert.deepEqual([panelOf(win).querySelector('.hudscale-title').textContent, rowOf(win, 'zoom').label, rowOf(win, 'text').label],
+      ['主界面', '缩放', '文字缩放']);
+    assert.equal(rowOf(win, 'zoom').number, '1.20');
+  });
+
+  test('OutSetting: the panel stays after a re-render of the window', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    const root = makeRoot(t, { OutSetting: win });
+    run(root, installCall(1.1, null));
+
+    // The localization message sets state.loc, and Vue renders the key groups again.
+    win.postMessage({ type: 'WebUI_OutSetting_LocalizationMsg', data: { groupBasicText: 'RERENDER' } }, '*');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const titles = [...win.document.querySelectorAll('.key-group-title')].map((e) => e.textContent);
+    assert.ok(titles.includes('RERENDER'), 'the window did not render again');
+    assert.ok(panelOf(win), 'the panel is gone');
+    assert.equal(rowOf(win, 'zoom').number, '1.10');
+  });
+
+  test('OutSetting: after install, the ready call of a new OutSetting frame adds the panel', async (t) => {
+    const frames = {};
+    const root = makeRoot(t, frames);
+    const calls = [];
+    root.notifyPageReady = (pageId) => { calls.push(pageId); };
+    run(root, installCall(null, 0.9));
+
+    frames.OutSetting = await loadPage(t, 'OutSetting');
+    root.notifyPageReady('OutSetting');
+
+    assert.deepEqual(calls, ['OutSetting']);
+    assert.equal(rowOf(frames.OutSetting, 'text').number, '0.90');
+  });
+
+  test('OutSetting: at the game values the panel shows 1.30 and 1.00', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    const root = makeRoot(t, { OutSetting: win });
+
+    run(root, CSHARP_GAME_VALUES_CALL);
+
+    assert.equal(rowOf(win, 'zoom').number, '1.30');
+    assert.equal(rowOf(win, 'text').number, '1.00');
+  });
+
+  test('OutSetting: install gives an error when the settings window is missing', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    win.document.getElementById('settingsModal').remove();
+    const root = makeRoot(t, { OutSetting: win });
+
+    assert.equal(run(root, installCall(null, null)), 'error: OutSetting: no #settingsModal');
+  });
+
+  // Preview, save, and reset. The root gets a vuplex stub that records each message to C#.
+  // t.mock.timers is enabled only after the pages load, because it replaces the setTimeout that the
+  // load timeout and the page's own timers use.
+
+  async function settingsSetup(t, zoom, textScale) {
+    const frames = { CoreUI1: await loadPage(t, 'CoreUI1'), OutSetting: await loadPage(t, 'OutSetting') };
+    const root = makeRoot(t, frames);
+    const sent = [];
+    root.vuplex = { postMessage: (m) => { sent.push(m); } };
+    run(root, installCall(zoom, textScale));
+    const zoomWrites = spyZoom(frames.CoreUI1);
+    return { root, sent, zoomWrites, core1: frames.CoreUI1, out: frames.OutSetting };
+  }
+
+  function setMessage(zoom, textScale) {
+    return `3\x1EOutSetting\x1EHUDSCALE_SET\x1E${zoom},${textScale}`;
+  }
+
+  async function openWindow(out, sent) {
+    out.document.getElementById('settingsModal').classList.add('active');
+    await Promise.resolve();
+    sent.length = 0;
+  }
+
+  function slide(out, key, value, type) {
+    const input = rowOf(out, key).input;
+    input.value = String(value);
+    input.dispatchEvent(new out.Event(type || 'input'));
+  }
+
+  test('settings: a drag shows the number at once and applies to the HUD after 120 ms', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    await openWindow(s.out, s.sent);
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+
+    slide(s.out, 'zoom', 1.2);
+    assert.equal(rowOf(s.out, 'zoom').number, '1.20');
+    t.mock.timers.tick(119);
+    assert.deepEqual(s.zoomWrites, []);
+    t.mock.timers.tick(1);
+
+    assert.deepEqual(s.zoomWrites, ['1.2']);
+    assert.deepEqual(s.sent, []);
+  });
+
+  test('settings: a fast drag applies only the last value, one time', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    await openWindow(s.out, s.sent);
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+
+    slide(s.out, 'zoom', 1.05);
+    t.mock.timers.tick(60);
+    slide(s.out, 'zoom', 1.1);
+    t.mock.timers.tick(60);
+    slide(s.out, 'zoom', 1.15);
+    t.mock.timers.tick(120);
+
+    assert.deepEqual(s.zoomWrites, ['1.15']);
+  });
+
+  test('settings: a release applies at once and sends the set message one time', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    const rule = fontOf12pxRule(s.core1);
+    await openWindow(s.out, s.sent);
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+
+    slide(s.out, 'text', 0.9);
+    slide(s.out, 'text', 0.9, 'change');
+    t.mock.timers.tick(500);
+
+    assert.equal(rule.style.getPropertyValue('font-size'), '10.8px');
+    assert.deepEqual(s.sent, [setMessage(1, 0.9)]);
+  });
+
+  test('settings: a click on the number sets the default, applies it, and sends it', async (t) => {
+    const s = await settingsSetup(t, 1.2, null);
+    await openWindow(s.out, s.sent);
+
+    s.out.document.querySelector('[data-hudscale="zoom"] .hudscale-value').click();
+
+    assert.equal(rowOf(s.out, 'zoom').number, '1.00');
+    assert.equal(rowOf(s.out, 'zoom').input.value, '1');
+    assert.deepEqual(s.zoomWrites, ['1']);
+    assert.deepEqual(s.sent, [setMessage(1, 1)]);
+  });
+
+  test('settings: slider events while the window is closed change nothing', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+
+    slide(s.out, 'zoom', 1.2);
+    slide(s.out, 'zoom', 1.2, 'change');
+    t.mock.timers.tick(500);
+
+    assert.equal(rowOf(s.out, 'zoom').number, '1.00');
+    assert.deepEqual(s.zoomWrites, []);
+    assert.deepEqual(s.sent, []);
+  });
+
+  // The window observer: an open asks C# for the current state, and a close saves an unsaved preview.
+
+  const SYNC_MESSAGE = '3\x1EOutSetting\x1EHUDSCALE_SYNC\x1E';
+
+  function modalOf(out) {
+    return out.document.getElementById('settingsModal');
+  }
+
+  // A MutationObserver callback runs as a microtask.
+  async function flushObservers() {
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
+  test('settings: opening the window sends one sync message', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+
+    modalOf(s.out).classList.add('active');
+    await flushObservers();
+
+    assert.deepEqual(s.sent, [SYNC_MESSAGE]);
+  });
+
+  test('settings: adding active to a window that is open sends nothing', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    await openWindow(s.out, s.sent);
+
+    modalOf(s.out).classList.add('active');
+    await flushObservers();
+
+    assert.deepEqual(s.sent, []);
+  });
+
+  test('settings: a close after a preview saves the previewed value', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    await openWindow(s.out, s.sent);
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    slide(s.out, 'zoom', 1.15);
+    t.mock.timers.tick(120);
+
+    modalOf(s.out).classList.remove('active');
+    await flushObservers();
+
+    assert.deepEqual(s.zoomWrites, ['1.15']);
+    assert.deepEqual(s.sent, [setMessage(1.15, 1)]);
+  });
+
+  test('settings: a close during the preview delay applies and saves the dragged value', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    await openWindow(s.out, s.sent);
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    slide(s.out, 'zoom', 1.15);
+
+    modalOf(s.out).classList.remove('active');
+    await flushObservers();
+    t.mock.timers.tick(500);
+
+    assert.deepEqual(s.zoomWrites, ['1.15']);
+    assert.deepEqual(s.sent, [setMessage(1.15, 1)]);
+  });
+
+  test('settings: a close with nothing unsaved sends nothing', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    await openWindow(s.out, s.sent);
+    slide(s.out, 'zoom', 1.2);
+    slide(s.out, 'zoom', 1.2, 'change');
+    s.sent.length = 0;
+
+    modalOf(s.out).classList.remove('active');
+    await flushObservers();
+
+    assert.deepEqual(s.sent, []);
+  });
+
+  test('settings: a second install adds no second window observer', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    run(s.root, installCall(1, null));
+
+    modalOf(s.out).classList.add('active');
+    await flushObservers();
+
+    assert.deepEqual(s.sent, [SYNC_MESSAGE]);
+  });
+
+  test('settings: a new OutSetting document gets its own window observer', async (t) => {
+    const frames = {};
+    const root = makeRoot(t, frames);
+    const sent = [];
+    root.vuplex = { postMessage: (m) => { sent.push(m); } };
+    root.notifyPageReady = () => {};
+    run(root, installCall(1, null));
+    frames.OutSetting = await loadPage(t, 'OutSetting');
+    root.notifyPageReady('OutSetting');
+    frames.OutSetting = await loadPage(t, 'OutSetting');
+    root.notifyPageReady('OutSetting');
+
+    modalOf(frames.OutSetting).classList.add('active');
+    await flushObservers();
+
+    assert.deepEqual(sent, [SYNC_MESSAGE]);
+  });
+
+  // An install from C# during a drag. jsdom has no PointerEvent, so a plain Event stands in.
+
+  function pointer(out, key, type) {
+    rowOf(out, key).input.dispatchEvent(new out.Event(type));
+  }
+
+  test('settings: an install during a drag does not move the slider, and one after the drag does', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    await openWindow(s.out, s.sent);
+    pointer(s.out, 'zoom', 'pointerdown');
+
+    run(s.root, installCall(1.25, null));
+    assert.equal(rowOf(s.out, 'zoom').number, '1.00');
+    assert.equal(rowOf(s.out, 'zoom').input.value, '1');
+
+    pointer(s.out, 'zoom', 'pointerup');
+    run(s.root, installCall(1.25, null));
+    assert.equal(rowOf(s.out, 'zoom').number, '1.25');
+    assert.equal(rowOf(s.out, 'zoom').input.value, '1.25');
+  });
+
+  test('settings: a close ends the drag, so the next install moves the slider', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    await openWindow(s.out, s.sent);
+    pointer(s.out, 'zoom', 'pointerdown');
+
+    modalOf(s.out).classList.remove('active');
+    await flushObservers();
+    run(s.root, installCall(1.25, null));
+
+    assert.equal(rowOf(s.out, 'zoom').number, '1.25');
+  });
+
+  test('settings: an install keeps an unsaved preview, and the close saves the preview', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    await openWindow(s.out, s.sent);
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    pointer(s.out, 'zoom', 'pointerdown');
+    slide(s.out, 'zoom', 1.15);
+    t.mock.timers.tick(120);
+
+    run(s.root, installCall(1, 0.9));
+    modalOf(s.out).classList.remove('active');
+    await flushObservers();
+
+    assert.deepEqual(s.sent, [setMessage(1.15, 0.9)]);
+  });
 }

@@ -1,0 +1,3 @@
+v1.1.0 - 2026-09-25
+Added: The settings window (Esc, then Settings) has a HUD panel with Scale and Text Scale sliders. The HUD changes while you drag, and the value saves to the config file.
+Changed: A change of the config file applies when the settings window opens or a save loads. A restart is no longer necessary.

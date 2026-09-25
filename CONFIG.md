@@ -1,6 +1,8 @@
 # Configuration
 
-The mod creates `BepInEx\config\com.ivmakk.survivallog.hudscale.cfg` when you first start the game with the mod installed. Edit the settings in a text editor. Restart the game to apply your changes.
+Change the settings in the game: load a save, press Esc, and open Settings. The HUD panel below Action Feedback has a Scale slider (`HudZoom`) and a Text Scale slider (`HudTextScale`). The HUD shows the new value while you drag. When you release the slider, the mod saves the value to the config file. Click a number to set its default again. The mark under each slider shows the default.
+
+The mod also creates `BepInEx\config\com.ivmakk.survivallog.hudscale.cfg` when you first start the game with the mod installed. You can edit the settings in a text editor while the game runs. A change of the file applies when you open the settings window or load a save. Close the settings window before you edit the file, because a slider release saves the values of the window.
 
 By default, the mod sets `HudZoom = 1.0` to reduce the game's oversized main HUD. This makes it about 23% smaller than the game's zoom of `1.3`. If you also want smaller text, try `HudTextScale = 0.9`. Smaller settings can reduce overlap, but some text can still exceed its boxes. To keep the game's HUD, set `HudZoom = 1.3` and `HudTextScale = 1.0`. With these values, the mod changes nothing.
 
