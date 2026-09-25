@@ -1,0 +1,1 @@
+A smaller, less crowded HUD in any game language, with adjustable HUD and text sizes.

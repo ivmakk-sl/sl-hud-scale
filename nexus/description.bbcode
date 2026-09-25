@@ -1,0 +1,42 @@
+[size=5]Description[/size]
+HUD Scale adjusts HUD and text sizes in any game language. It reduces the main HUD zoom from 1.3 to 1.0 by default.
+
+I made this mod because Survival Log's HUD feels oversized in English. The layout appears to favor compact Chinese text. English labels overlap, quest lines end in "...", and plant and trap names wrap onto two lines.
+
+Reducing the zoom to 1.0 makes the HUD about 23% smaller and greatly reduces overlap in my testing. Some text can still exceed its boxes.
+
+[size=5]Main features[/size]
+[list]
+[*][b]HUD size.[/b] Scale the main HUD's text, icons, and boxes together. The mod sets [font=Courier New]HudZoom = 1.0[/font] by default, instead of the game's 1.3.
+[*][b]Text adjustment.[/b] Adjust text and icons that use font sizes without resizing their boxes. If you also want smaller text, try [font=Courier New]HudTextScale = 0.9[/font].
+[*][b]Text from other mods.[/b] Text that other mods define with pixel font sizes in HUD stylesheets also scales.
+[/list]
+
+The weather tooltip's description line does not respond to text scaling. Neither do icons with fixed image dimensions.
+
+The cooking window, containers, event pop-ups, and other windows keep their size. Labels over furniture and characters in the world also keep their size. To keep the game's HUD size, set [font=Courier New]HudZoom = 1.3[/font].
+
+[size=5]Requirements[/size]
+[list]
+[*][url=https://www.nexusmods.com/survivallog/mods/12]BepInEx for Survival Log[/url]. Install it first.
+[/list]
+
+[size=5]Installation[/size]
+[list=1]
+[*]Install [url=https://www.nexusmods.com/survivallog/mods/12]BepInEx[/url] [i](if no other mods were installed before, start the game once so BepInEx finishes setup, then quit)[/i].
+[*]Extract this mod's zip into the game folder (the folder with the game .exe). The DLL lands in BepInEx\plugins. Full path example:
+[list]
+[*]Steam: [code]C:\Program Files (x86)\Steam\steamapps\common\Survival Log\BepInEx\plugins\HudScale.dll[/code]
+[/list]
+[/list]
+
+[size=5]Uninstall[/size]
+Delete HudScale.dll from the BepInEx\plugins folder.
+
+[size=5]Configuration[/size]
+The mod creates [font=Courier New]BepInEx\config\com.ivmakk.survivallog.hudscale.cfg[/font] when you first start the game with the mod installed. Edit the settings in a text editor. Restart the game to apply your changes.
+
+The mod sets [font=Courier New]HudZoom = 1.0[/font] by default (the game uses 1.3). If you also want smaller text, try [font=Courier New]HudTextScale = 0.9[/font] (default 1.0). To keep the game's HUD, set [font=Courier New]HudZoom = 1.3[/font] and [font=Courier New]HudTextScale = 1.0[/font]. See [url=https://github.com/ivmakk-sl/sl-hud-scale/blob/main/CONFIG.md]CONFIG.md[/url] for each setting, its default, and its limits.
+
+[size=5]Source and license[/size]
+Open source under GPL-3.0: [url=https://github.com/ivmakk-sl/sl-hud-scale]github.com/ivmakk-sl/sl-hud-scale[/url]
