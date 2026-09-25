@@ -1,23 +1,30 @@
 # HUD Scale
 
-HUD Scale lets you reduce the oversized HUD in the English version of *Survival Log*. The layout appears to favor compact Chinese text. English labels overlap, quest lines end in "...", and plant and trap names wrap onto two lines.
+HUD Scale adds HUD scale and text size sliders to the settings window in *Survival Log*. It works in any game language. By default, it reduces the game's HUD zoom from `1.3` to `1.0`, making the main HUD about 23% smaller.
 
-The game uses a main HUD zoom of `1.3`. Reducing it to `1.0` makes the HUD about 23% smaller and greatly reduces overlap in my testing. This is the main reason I made the mod. Some text can still exceed its boxes.
+I made this mod because the HUD feels oversized in English. The layout appears to favor compact Chinese text. English labels overlap, quest lines end in "...", and plant and trap names wrap onto two lines. The smaller HUD greatly reduces overlap in my testing. Some text can still exceed its boxes.
 
-- `HudZoom` scales the full main HUD (story, events, plant and trap lists, stats, buttons): text, icons, and boxes together. The game uses `1.3`. The mod's default is `1.0`, which makes the main HUD about 23% smaller.
-- `HudTextScale` provides a secondary adjustment for text and icons that use font sizes. The boxes keep their size. The default is `1.0`, which preserves the original font sizes.
+- **Scale** resizes the main HUD's text, icons, and boxes together. This includes the story, events, plant and trap lists, stats, and buttons.
+- **Text Scale** provides a secondary adjustment for text and icons that use font sizes. The boxes keep their size. Its default, `1.0`, preserves the original font sizes.
 
-The mod sets `HudZoom = 1.0` by default, so the HUD is smaller as soon as you install it. If you also want smaller text, try `HudTextScale = 0.9`. Both settings affect text size in the main HUD. To keep the game's HUD size, set `HudZoom = 1.3`. With `HudZoom = 1.3` and `HudTextScale = 1.0`, the mod changes nothing. The HUD appears at the configured size, with no jump from its original size.
+If you also want smaller text, try **Text Scale** at `0.90`. Both sliders affect text size in the main HUD. To restore the game's HUD sizes, set **Scale** to `1.30` and **Text Scale** to `1.00`. The HUD panel remains available in the settings window.
 
-`HudZoom` does not scale the top timer box. `HudTextScale` also applies to text in the top timer box and unlock notifications. The weather tooltip's description line does not respond to `HudTextScale`. Text that other mods define with pixel font sizes in HUD stylesheets also scales, including Trapline's grid.
+Text that other mods define with pixel font sizes in HUD stylesheets also scales, including Trapline's grid. **Text Scale** does not affect the weather tooltip's description line or icons with fixed image dimensions.
 
 The cooking window, the bag, event pop-ups, and other windows keep their size. Labels over furniture and characters in the world, such as dish names and timers, also keep their size. The mod does not edit the game's original files or change the save format.
 
 ## Configuration
 
-Change the settings in the game: load a save, press Esc, and open Settings. The HUD panel has a Scale slider (`HudZoom`) and a Text Scale slider (`HudTextScale`). The HUD shows the new value while you drag, and a release saves it to the config file.
+1. Load a save.
+2. Press Esc.
+3. Open **Settings**.
+4. Adjust **Scale** or **Text Scale** in the **HUD** panel below **Action Feedback**.
 
-The config file is `BepInEx\config\com.ivmakk.survivallog.hudscale.cfg`. The mod creates it when you first start the game with the mod installed. A change of the file in a text editor applies when you open the settings window or load a save, with no restart. See [CONFIG.md](CONFIG.md) for each setting, its default, and its limits.
+The HUD previews your changes while you drag. Release the slider to save the value. Click its number to restore the mod's default. The mark under each slider shows that default. The HUD panel is available only after a save loads.
+
+You can also edit `BepInEx\config\com.ivmakk.survivallog.hudscale.cfg`. Close the settings window before you edit the file. File edits apply when you next open the settings window or load a save. No restart is needed. See [CONFIG.md](CONFIG.md) for the config keys, defaults, and limits.
+
+Nexus page: https://www.nexusmods.com/games/survivallog/mods/16
 
 ## Requirements
 
@@ -47,7 +54,7 @@ dotnet build src/HudScale.csproj -c Release
 
 `Directory.Build.props` sets `GameDir` to the default Steam install path. If the game is in another place, override it without an edit of the file: set a `GameDir` environment variable, or pass `-p:GameDir=...` on the build. The output DLL is at `src\bin\Release\HudScale.dll`.
 
-The choice of which web view message starts the page script, and the call it gets, is game-free code (`src/HudScaleLogic.cs`) with unit tests. The tests do not need the game:
+`src/HudScaleLogic.cs` handles web view messages, parses settings panel messages, and builds calls to the page script. `src/ConfigFileCheck.cs` detects changes to the config file. Their unit tests do not need the game:
 
 ```
 dotnet test tests/HudScale.Tests
