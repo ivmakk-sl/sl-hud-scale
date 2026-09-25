@@ -448,6 +448,211 @@ if (!gameFilesExist) {
     });
   }
 
+  // Icons keep their size with the text scale. The game sizes some SVG icons in em, so each such size
+  // is divided by the text scale that their font size gets.
+
+  // The first style rule whose selector is exactly this text, nested rules included.
+  function ruleOf(win, selector) {
+    const find = (rules) => {
+      for (const rule of rules) {
+        if (rule.selectorText === selector) return rule;
+        const nested = rule.cssRules && find(rule.cssRules);
+        if (nested) return nested;
+      }
+      return null;
+    };
+    for (const sheet of win.document.styleSheets) {
+      const rule = find(sheet.cssRules);
+      if (rule) return rule;
+    }
+    throw new Error(`no rule "${selector}"`);
+  }
+
+  test('CoreUI1: text scale 0.85 divides the 1em size of .icon-svg', async (t) => {
+    const win = await loadPage(t, 'CoreUI1');
+    const icon = ruleOf(win, '.icon-svg');
+    const root = makeRoot(t, { CoreUI1: win });
+    setFactors(root, null, 0.85);
+
+    run(root, "window.__hudscale.apply('CoreUI1')");
+
+    assert.equal(icon.style.getPropertyValue('width'), '1.1765em');
+    assert.equal(icon.style.getPropertyValue('height'), '1.1765em');
+  });
+
+  // jsdom does no layout, so the icon size on screen comes from the rules: the font size of the rule
+  // that gives the icon its em, times the em size of the icon rule. The em size is rounded to four
+  // decimals, so the size may differ by less than 0.01 px.
+  const EM_ICONS = [
+    { pageId: 'CoreUI1', name: 'phone', font: '.icon-sq', icon: '.icon-svg' },
+    { pageId: 'CoreUI0', name: 'timer', font: '.timer-box .icon-svg', icon: '.icon-svg' },
+    { pageId: 'CoreUI0', name: 'camera', font: '.map-trigger-btn', icon: '.icon-svg-stroke' },
+    { pageId: 'CoreUI0', name: 'plan-mode', font: '.map-trigger-btn', icon: '.icon-svg' },
+    { pageId: 'CoreUI0', name: 'survival log', font: '.log-btn-right', icon: '.icon-svg' }
+  ];
+
+  function iconSize(win, c) {
+    const font = parseFloat(ruleOf(win, c.font).style.getPropertyValue('font-size'));
+    return font * parseFloat(ruleOf(win, c.icon).style.getPropertyValue('width'));
+  }
+
+  for (const c of EM_ICONS) {
+    test(`${c.pageId}: the ${c.name} icon keeps its size at text scale 0.85 and 1.5`, async (t) => {
+      const win = await loadPage(t, c.pageId);
+      const original = iconSize(win, c);
+      const root = makeRoot(t, { [c.pageId]: win });
+
+      for (const textScale of [0.85, 1.5]) {
+        setFactors(root, null, textScale);
+        run(root, `window.__hudscale.apply('${c.pageId}')`);
+        const scaled = iconSize(win, c);
+        assert.ok(Math.abs(scaled - original) < 0.01, `${textScale}: ${scaled}px, not ${original}px`);
+      }
+    });
+  }
+
+  test('CoreUI1: a second apply divides the em size from the original, not two times', async (t) => {
+    const win = await loadPage(t, 'CoreUI1');
+    const icon = ruleOf(win, '.icon-svg');
+    const root = makeRoot(t, { CoreUI1: win });
+    setFactors(root, null, 0.85);
+
+    run(root, "window.__hudscale.apply('CoreUI1')");
+    run(root, "window.__hudscale.apply('CoreUI1')");
+
+    assert.equal(icon.style.getPropertyValue('width'), '1.1765em');
+  });
+
+  test('CoreUI0: text 0.85, then 1 restores the original em sizes', async (t) => {
+    const win = await loadPage(t, 'CoreUI0');
+    const icon = ruleOf(win, '.icon-svg');
+    const stroke = ruleOf(win, '.icon-svg-stroke');
+    const root = makeRoot(t, { CoreUI0: win });
+
+    run(root, installCall(null, 0.85));
+    run(root, installCall(null, 1));
+
+    assert.equal(icon.style.getPropertyValue('width'), '1em');
+    assert.equal(stroke.style.getPropertyValue('height'), '1.07em');
+  });
+
+  test('CoreUI0: an install at the game values changes no em size', async (t) => {
+    const win = await loadPage(t, 'CoreUI0');
+    const stroke = ruleOf(win, '.icon-svg-stroke');
+    let writes = 0;
+    const setProperty = stroke.style.setProperty.bind(stroke.style);
+    stroke.style.setProperty = (...args) => { writes++; return setProperty(...args); };
+    const root = makeRoot(t, { CoreUI0: win });
+
+    run(root, installCall(null, null));
+
+    assert.equal(writes, 0);
+    assert.equal(stroke.style.getPropertyValue('width'), '1.07em');
+  });
+
+  test('CoreUI1: text 0.8 divides the em min and max sizes, and text 1 restores them', async (t) => {
+    const win = await loadPage(t, 'CoreUI1');
+    const style = win.document.createElement('style');
+    style.textContent = '.hs-limits { min-width: 1em; min-height: 1em; max-width: 2em; max-height: 2em; }';
+    win.document.head.appendChild(style);
+    const rule = style.sheet.cssRules[0];
+    const root = makeRoot(t, { CoreUI1: win });
+
+    run(root, installCall(null, 0.8));
+    assert.deepEqual(
+      ['min-width', 'min-height', 'max-width', 'max-height'].map((p) => rule.style.getPropertyValue(p)),
+      ['1.25em', '1.25em', '2.5em', '2.5em']);
+
+    run(root, installCall(null, 1));
+    assert.deepEqual(
+      ['min-width', 'min-height', 'max-width', 'max-height'].map((p) => rule.style.getPropertyValue(p)),
+      ['1em', '1em', '2em', '2em']);
+  });
+
+  test('CoreUI1: a rem width and the em gap of .attr-name keep their text', async (t) => {
+    const win = await loadPage(t, 'CoreUI1');
+    const style = win.document.createElement('style');
+    style.textContent = '.hs-rem { width: 2rem; }';
+    win.document.head.appendChild(style);
+    const gap = ruleOf(win, '.attr-name');
+    const root = makeRoot(t, { CoreUI1: win });
+    setFactors(root, null, 0.85);
+
+    run(root, "window.__hudscale.apply('CoreUI1')");
+
+    assert.equal(style.sheet.cssRules[0].style.getPropertyValue('width'), '2rem');
+    assert.equal(gap.style.getPropertyValue('gap'), '0.25em');
+  });
+
+  test('CoreUI1: an icon in a style that a mod adds after apply keeps its size', async (t) => {
+    const win = await loadPage(t, 'CoreUI1');
+    const root = makeRoot(t, { CoreUI1: win });
+    setFactors(root, null, 0.9);
+    run(root, "window.__hudscale.apply('CoreUI1')");
+
+    assert.equal(await addModStyle(win, '.mod-box { font-size: 10px; } .mod-box .mod-icon { width: 1em; }'), '9px');
+
+    const rules = [...win.document.styleSheets].at(-1).cssRules;
+    assert.equal(rules[1].style.getPropertyValue('width'), '1.1111em');
+    assert.ok(Math.abs(9 * 1.1111 - 10) < 0.01);
+  });
+
+  test('CoreUI1: a mod rule with a font size and an em width restores both at text 1', async (t) => {
+    const win = await loadPage(t, 'CoreUI1');
+    const root = makeRoot(t, { CoreUI1: win });
+    run(root, installCall(null, 0.9));
+    await addModStyle(win, '.mod-both { font-size: 10px; width: 2em; }');
+    const rule = [...win.document.styleSheets].at(-1).cssRules[0];
+    assert.equal(rule.style.getPropertyValue('width'), '2.2222em');
+
+    run(root, installCall(null, 1));
+
+    assert.equal(rule.style.getPropertyValue('font-size'), '10px');
+    assert.equal(rule.style.getPropertyValue('width'), '2em');
+  });
+
+  // A guard against a game update: an icon in em keeps its size only when its em comes from a px
+  // font size of a stylesheet rule, which the text scale multiplies. An inline font size is not
+  // scaled, so the division would make such an icon smaller. Only the elements that Vue renders in
+  // jsdom are checked. The phone and bag buttons of CoreUI1 render only when the game turns them on.
+  for (const pageId of Object.keys(PAGES)) {
+    test(`${pageId}: each icon in em gets its font size from a px stylesheet rule`, async (t) => {
+      const win = await loadPage(t, pageId);
+      if (pageId === 'CoreUI1') {
+        win.postMessage({ type: 'WebUI_CoreUI1_BtnActiveMsg', data: { phoneActive: true, bagActive: true } }, '*');
+        await new Promise((resolve) => win.setTimeout(resolve, 50));
+      }
+      const rules = [];
+      const walk = (list) => {
+        for (const rule of list) {
+          if (rule.cssRules) walk(rule.cssRules);
+          if (rule.style) rules.push(rule);
+        }
+      };
+      for (const sheet of win.document.styleSheets) walk(sheet.cssRules);
+      const isEm = (v) => /^[\d.]+em$/.test(v);
+      const emRules = rules.filter((r) =>
+        ['width', 'height', 'min-width', 'min-height', 'max-width', 'max-height'].some((p) => isEm(r.style.getPropertyValue(p))));
+      const fontRules = rules.filter((r) => r.style.getPropertyValue('font-size'));
+
+      let matched = 0;
+      for (const emRule of emRules) {
+        for (const el of win.document.querySelectorAll(emRule.selectorText)) {
+          matched++;
+          let source = null;
+          for (let cur = el; cur && !source; cur = cur.parentElement) {
+            if (cur.style && cur.style.fontSize) source = `inline ${cur.style.fontSize}`;
+            else source = fontRules.find((r) => cur.matches(r.selectorText)) || null;
+          }
+          const label = `${emRule.selectorText} (${el.getAttribute('class')})`;
+          assert.ok(source && typeof source !== 'string', `${label}: font size from ${source || 'no rule'}`);
+          assert.match(source.style.getPropertyValue('font-size'), /^[\d.]+px$/, `${label}: font size from ${source.selectorText}`);
+        }
+      }
+      assert.ok(matched > 0, `${pageId} renders no icon in em`);
+    });
+  }
+
   // The HUD panel of the settings window (OutSetting).
 
   function panelOf(win) {

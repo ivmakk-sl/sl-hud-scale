@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-25
+
+### Changed
+
+- **Text Scale** no longer changes the size of HUD icons, such as the phone, bag, timer, and survival log icons. Icons follow only **Scale**.
+
 ## [1.1.0] - 2026-09-25
 
 ### Added

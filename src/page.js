@@ -44,16 +44,38 @@
       var rule = rules[i];
       if (rule.cssRules) scaleRules(rule.cssRules, factor, originals);
       if (!rule.style) continue;
-      // The original is kept as its text, so a factor of 1 writes back the exact text of the game
-      // stylesheet (for example "28.0px", not "28px").
       var original = originals.get(rule);
       if (original === undefined) {
-        original = rule.style.getPropertyValue('font-size');
-        if (!/^[\d.]+px$/.test(original)) continue;
+        original = readOriginals(rule.style);
+        if (!original) continue;
         originals.set(rule, original);
       }
-      rule.style.setProperty('font-size', factor === 1 ? original : round2(parseFloat(original) * factor) + 'px');
+      for (var property in original) {
+        var text = original[property];
+        var scaled = property === 'font-size'
+          ? round2(parseFloat(text) * factor) + 'px'
+          : round4(parseFloat(text) / factor) + 'em';
+        rule.style.setProperty(property, factor === 1 ? text : scaled);
+      }
     }
+  }
+
+  // An icon or a box sized in em gets its em from a font size that the text scale multiplies. These
+  // sizes are divided by the same factor, so the icons and the boxes keep their size.
+  var EM_SIZES = ['width', 'height', 'min-width', 'min-height', 'max-width', 'max-height'];
+
+  // The properties of a rule that the text scale changes, as { property: text }, or null when the
+  // rule has none. Each original is kept as its text, so a factor of 1 writes back the exact text of
+  // the game stylesheet (for example "28.0px", not "28px").
+  function readOriginals(style) {
+    var found = null;
+    var fontSize = style.getPropertyValue('font-size');
+    if (/^[\d.]+px$/.test(fontSize)) found = { 'font-size': fontSize };
+    for (var i = 0; i < EM_SIZES.length; i++) {
+      var size = style.getPropertyValue(EM_SIZES[i]);
+      if (/^[\d.]+em$/.test(size)) (found || (found = {}))[EM_SIZES[i]] = size;
+    }
+    return found;
   }
 
   // Other mods add their <style> to the head after the page loads. One observer for each page scales
@@ -79,6 +101,10 @@
 
   function round2(v) {
     return Math.round(v * 100) / 100;
+  }
+
+  function round4(v) {
+    return Math.round(v * 10000) / 10000;
   }
 
   var HUD_PAGES = ['CoreUI1', 'CoreUI0'];
