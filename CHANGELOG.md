@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-09-29
+
+### Removed
+
+- Support for game versions before 1.1.18153 (the Autumn Update). HUD Scale 1.1.2 needs Survival Log 1.1.18153 or later.
+
+### Fixed
+
+- The HUD panel in the new settings window of the Autumn Update: it is its own panel with its own title, the last panel of the General tab after Interface. Before, it showed inside the Sound panel with a second title.
+
 ## [1.1.1] - 2026-09-25
 
 ### Changed

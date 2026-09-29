@@ -659,17 +659,52 @@ if (!gameFilesExist) {
     return win.document.getElementById('hudscale-panel');
   }
 
-  test('OutSetting: install adds the HUD panel at the end of the first settings block, after the Action Feedback hint', async (t) => {
+  // The panel of the game that holds the Action Feedback setting: the Interface panel.
+  function interfacePanel(win) {
+    return win.document.getElementById('actionEchoCheck').closest('.settings-section');
+  }
+
+  test('OutSetting: install adds the HUD panel as its own panel after the Interface panel, in the General tab', async (t) => {
     const win = await loadPage(t, 'OutSetting');
     const root = makeRoot(t, { OutSetting: win });
+    const general = interfacePanel(win).closest('.set-page');
 
     assert.equal(run(root, installCall(null, null)), 'installed');
 
-    const section = win.document.querySelector('#settingsModal .settings-section');
     const panel = panelOf(win);
     assert.ok(panel, 'no panel');
-    assert.equal(section.lastElementChild, panel);
-    assert.ok(panel.previousElementSibling.classList.contains('setting-hint'));
+    assert.ok(panel.classList.contains('settings-section'), 'the panel is a settings panel of its own');
+    assert.equal(panel.firstElementChild, panel.querySelector('.key-group-title'), 'the panel starts with its own title');
+    assert.equal(interfacePanel(win).nextElementSibling, panel, 'the panel comes right after the Interface panel');
+    assert.equal(panel.closest('.set-page'), general, 'the panel is in the General tab');
+  });
+
+  test('OutSetting: the HUD panel hides with the General tab and shows again after a switch back', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    const root = makeRoot(t, { OutSetting: win });
+    run(root, installCall(null, null));
+    const [generalTab, keysTab] = win.document.querySelectorAll('.set-tab');
+    const general = panelOf(win).closest('.set-page');
+
+    keysTab.click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(general.style.display, 'none', 'the General tab did not hide');
+    assert.ok(panelOf(win), 'the panel is gone after the switch to the Controls tab');
+
+    generalTab.click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.notEqual(general.style.display, 'none', 'the General tab did not show again');
+    assert.equal(interfacePanel(win).nextElementSibling, panelOf(win), 'the panel is not after the Interface panel');
+  });
+
+  test('OutSetting: install gives an error that names #actionEchoCheck when it is missing, and adds nothing', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    win.document.getElementById('actionEchoCheck').remove();
+    const root = makeRoot(t, { OutSetting: win });
+
+    assert.equal(run(root, installCall(null, null)), 'error: OutSetting: no #actionEchoCheck in #settingsModal');
+    assert.equal(panelOf(win), null);
+    assert.equal(win.document.getElementById('hudscale-style'), null);
   });
 
   function rowOf(win, key) {
@@ -681,19 +716,18 @@ if (!gameFilesExist) {
     };
   }
 
-  test('OutSetting: the volume sliders stay first, and the HUD sliders come after them', async (t) => {
+  test('OutSetting: the Sound panel keeps its own sliders and holds no HUD slider', async (t) => {
     const win = await loadPage(t, 'OutSetting');
     const root = makeRoot(t, { OutSetting: win });
-    const [music, effects] = win.document.querySelectorAll('input[type=range]');
+    const sound = win.document.getElementById('sliderBg').closest('.settings-section');
+    const soundRanges = [...sound.querySelectorAll('input[type=range]')];
 
     run(root, installCall(1.1, 0.9));
 
-    const ranges = win.document.querySelectorAll('input[type=range]');
-    assert.equal(ranges.length, 4);
-    assert.equal(ranges[0], music);
-    assert.equal(ranges[1], effects);
-    assert.equal(ranges[2], rowOf(win, 'zoom').input);
-    assert.equal(ranges[3], rowOf(win, 'text').input);
+    assert.deepEqual([...sound.querySelectorAll('input[type=range]')], soundRanges);
+    assert.equal(sound.querySelector('[data-hudscale]'), null);
+    assert.equal(rowOf(win, 'zoom').input.closest('#hudscale-panel'), panelOf(win));
+    assert.equal(rowOf(win, 'text').input.closest('#hudscale-panel'), panelOf(win));
   });
 
   test('OutSetting: each HUD slider has the limits, the value, and the step, and its number has two decimals', async (t) => {

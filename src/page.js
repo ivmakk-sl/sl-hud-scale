@@ -116,7 +116,7 @@
   var PREVIEW_DELAY_MS = 120;
 
   var PANEL_CSS =
-    '#hudscale-panel { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }' +
+    '#hudscale-panel { display: flex; flex-direction: column; gap: 10px; }' +
     '#hudscale-panel .setting-label { flex-shrink: 0; }' +
     '.hudscale-mark { position: absolute; top: 50%; width: 2px; height: 16px; transform: translate(-50%, -50%);' +
     ' background: rgba(255, 255, 255, 0.45); pointer-events: none; }' +
@@ -134,7 +134,7 @@
   // The panel: a title in the style of the key groups, then one row for each setting with a label,
   // a slider in the game's slider style, and the value as a number.
   function buildPanel(doc) {
-    var panel = el(doc, 'div');
+    var panel = el(doc, 'div', 'settings-section');
     panel.id = 'hudscale-panel';
     panel.appendChild(el(doc, 'div', 'key-group-title hudscale-title'));
     for (var i = 0; i < SETTINGS.length; i++) {
@@ -274,10 +274,12 @@
     }
   }
 
-  // Adds the panel to the settings window, or updates it when it is there. The panel sits at the end
-  // of the first settings block (Music, Effects, Action Feedback), which Vue renders one time as
-  // static content, so a re-render of the window keeps it. Its sliders come after the two volume
-  // sliders, which the page finds by index.
+  // Adds the panel to the settings window, or updates it when it is there. The window has two tabs,
+  // General and Controls, each a .set-page that Vue shows and hides with v-show. The General tab holds
+  // the Sound, graphics, and Interface panels (.settings-section), and the game finds its sliders by
+  // id. The HUD panel is a panel of its own after the Interface panel, the panel of the Action
+  // Feedback setting (#actionEchoCheck), so it hides and shows with the General tab. Vue patches only
+  // the dynamic nodes of the tab, so a re-render of the window keeps the panel.
   hs.panel = function () {
     try {
       var frame = document.getElementById(SETTINGS_PAGE);
@@ -290,15 +292,17 @@
       watchModal(doc, modal);
       var panel = doc.getElementById('hudscale-panel');
       if (!panel) {
-        var section = modal.querySelector('.settings-section');
-        if (!section) return 'error: no .settings-section in #settingsModal';
+        var anchor = modal.querySelector('#actionEchoCheck');
+        if (!anchor) return 'error: no #actionEchoCheck in #settingsModal';
+        var section = anchor.closest('.settings-section');
+        if (!section) return 'error: no .settings-section around #actionEchoCheck';
         if (!doc.getElementById('hudscale-style')) {
           var style = el(doc, 'style', null, PANEL_CSS);
           style.id = 'hudscale-style';
           doc.head.appendChild(style);
         }
         panel = buildPanel(doc);
-        section.appendChild(panel);
+        section.after(panel);
         hs.dragging = false;
       }
       showState(win, panel);

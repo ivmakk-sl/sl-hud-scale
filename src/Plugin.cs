@@ -10,7 +10,7 @@ using HarmonyLib;
 
 namespace HudScale
 {
-    [BepInPlugin(PluginGuid, "HUD Scale", "1.1.1")]
+    [BepInPlugin(PluginGuid, "HUD Scale", "1.1.2")]
     [BepInProcess("SurvivalLog.exe")]
     public sealed class Plugin : BasePlugin
     {
