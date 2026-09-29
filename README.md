@@ -18,7 +18,7 @@ The cooking window, the bag, event pop-ups, and other windows keep their size. L
 1. Load a save.
 2. Press Esc.
 3. Open **Settings**.
-4. Adjust **Scale** or **Text Scale** in the **HUD** panel below **Action Feedback**.
+4. Adjust **Scale** or **Text Scale** in the **HUD** panel, the last panel of the **General** tab (after **Interface**).
 
 The HUD previews your changes while you drag. Release the slider to save the value. Click its number to restore the mod's default. The mark under each slider shows that default. The HUD panel is available only after a save loads.
 
@@ -28,7 +28,8 @@ Nexus page: https://www.nexusmods.com/games/survivallog/mods/16
 
 ## Requirements
 
-The [BepInEx Pack for Survival Log](https://www.nexusmods.com/survivallog/mods/12), the BepInEx 6 (IL2CPP) build for the game.
+- Survival Log 1.1.18153 (the Autumn Update) or later.
+- The [BepInEx Pack for Survival Log](https://www.nexusmods.com/survivallog/mods/12), the BepInEx 6 (IL2CPP) build for the game.
 
 ## Install
 

@@ -1,3 +1,7 @@
+v1.1.2 - 2026-09-29
+Removed: Support for game versions before 1.1.18153 (the Autumn Update). This version needs Survival Log 1.1.18153 or later.
+Fixed: The HUD panel in the new settings window of the Autumn Update is its own panel, the last panel of the General tab after Interface. Before, it showed inside the Sound panel with a second title.
+
 v1.1.1 - 2026-09-25
 Changed: Text Scale no longer changes the size of HUD icons, such as the phone, bag, timer, and survival log icons. Icons follow only Scale.
 
