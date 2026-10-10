@@ -26,7 +26,7 @@ namespace HudScale
             ReduxUISystem.Instance?.GetWebUILayer()?.canvasWebViewPrefab?.WebView;
 
         // A full send whose result has not come back yet blocks a second one, for at most this long: a
-        // browser crash drops the result.
+        // browser crash drops the result. A root-ready message is a new root page, so its send goes always.
         private const float FullSendWaitSeconds = 5f;
         private static float fullSendAt = float.NegativeInfinity;
         // The number of the last full send: only its result opens the gate, not a late one of an older send.
@@ -56,7 +56,8 @@ namespace HudScale
         {
             var webView = WebView();
             float now = Time.realtimeSinceStartup;
-            if (webView == null || now - fullSendAt < FullSendWaitSeconds) return;
+            bool newPage = HudScaleLogic.SendsFullScript(trigger);
+            if (webView == null || (!newPage && now - fullSendAt < FullSendWaitSeconds)) return;
             fullSendAt = now;
             int id = ++fullSendId;
             if (Plugin.Verbose.Value) Plugin.Log.LogDebug($"HUD Scale page script: sent ({trigger})");

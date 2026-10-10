@@ -50,7 +50,7 @@ Delete `HudScale.dll` from the `BepInEx\plugins` folder. The HUD has its normal 
 
 This is a BepInEx 6 IL2CPP plugin. It compiles against the game's IL2CPP interop assemblies. The build needs an installed copy of the game with BepInEx. Start the game once with BepInEx to generate the assemblies. This repo does not include those assemblies.
 
-The build needs the .NET 8 SDK and Node 22. The page script uses TypeScript in `src/Web/page/`. Vite builds it into one file, which the DLL embeds. For [mise](https://mise.jdx.dev) users, `mise.toml` specifies Node 22.
+The build needs the .NET 8 SDK and Node 22.22.2 or a later Node 22 release. The page script uses TypeScript in `src/Web/page/`. Vite builds it into one file, which the DLL embeds. For [mise](https://mise.jdx.dev) users, `mise.toml` specifies the latest Node 22 release.
 
 Run these commands from the mod root:
 
