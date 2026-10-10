@@ -11,24 +11,30 @@ namespace HudScale
     // resolution, a browser rebuild) is covered with no patch of the game's async apply. HotUpdateCaller.Update
     // runs in each frame, also at the title screen and while the world is paused. At each change from on to
     // off, whatever its cause (the panel switch, a file edit, another config tool), the game computes its own
-    // value again.
+    // value again. The prefab and its RectTransform are kept between frames, so a frame reads only numbers and
+    // makes no interop wrapper objects. They are looked up again when Unity destroyed them (the game destroys
+    // the web UI root before it builds a new one) and once a second, in case the game holds a new prefab.
     [HarmonyPatch(typeof(HotUpdateCaller), nameof(HotUpdateCaller.Update))]
     internal static class SharpUiApply
     {
         // The value of SharpUI at the last frame.
         private static bool lastOn;
         private static bool warned;
+        private static Vuplex.WebView.CanvasWebViewPrefab prefab;
+        private static RectTransform rect;
+        private static float lookedUpAt = float.NegativeInfinity;
+        private const float LookUpSeconds = 1f;
 
         private static void Postfix()
         {
             try
             {
                 bool on = Plugin.SharpUI.Value;
-                var layer = ReduxUISystem.Instance?.GetWebUILayer();
                 if (!on)
                 {
                     if (lastOn)
                     {
+                        var layer = ReduxUISystem.Instance?.GetWebUILayer();
                         // Without the layer, the switch back to the game's value waits for a later frame.
                         if (layer == null) return;
                         if (Plugin.Verbose.Value) Plugin.Log.LogDebug("Sharp UI: off, the game sets the pixel density");
@@ -38,9 +44,14 @@ namespace HudScale
                     return;
                 }
                 lastOn = true;
-                var prefab = layer?.canvasWebViewPrefab;
-                var rect = prefab?.transform.TryCast<RectTransform>();
-                if (rect == null) return;
+                float now = Time.realtimeSinceStartup;
+                if (prefab == null || rect == null || now - lookedUpAt >= LookUpSeconds)
+                {
+                    lookedUpAt = now;
+                    prefab = ReduxUISystem.Instance?.GetWebUILayer()?.canvasWebViewPrefab;
+                    rect = prefab == null ? null : prefab.transform.TryCast<RectTransform>();
+                    if (rect == null) return;
+                }
                 float layout = rect.rect.width * prefab.Resolution;
                 float? fit = SharpUiLogic.Fit(Screen.width, layout);
                 if (fit == null || prefab.PixelDensity == fit.Value) return;
