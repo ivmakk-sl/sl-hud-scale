@@ -1,5 +1,5 @@
 v1.2.0 - 2026-10-10
-Added: Sharp UI. The game interface is drawn at a resolution close to your screen resolution, so text and lines look clearer, mostly on a wide screen, for example a 4K screen. It uses more graphics memory and can slow the game. Turn it off with the Sharp UI switch in the HUD panel of the settings window.
+Added: Sharp UI. The game interface is drawn at a resolution close to your screen resolution, so text and lines look clearer, mostly on a wide screen, for example a 4K screen. Turn it off with the Sharp UI switch in the HUD panel of the settings window.
 
 v1.1.2 - 2026-09-29
 Removed: Support for game versions before 1.1.18153 (the Autumn Update). This version needs Survival Log 1.1.18153 or later.

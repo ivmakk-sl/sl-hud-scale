@@ -56,4 +56,4 @@ With **Sharp UI** on, the mod removes these limits, also after you change the gr
 - On **High** and **Medium**: only on a screen past the limit, for example a 4K screen. On a smaller screen, the interface looks the same as without the mod.
 - On **Low**: on most screens, because the mod also removes the lower resolution of **Low**. At some lower resolutions, it makes no visible difference.
 
-**Sharp UI** uses more graphics memory and can slow the game, mostly on a wide screen or a weak graphics card. For example, on a 4K screen on **Low**, the interface has almost three times as many pixels as without the mod. If the game runs slower, turn **Sharp UI** off: the game then uses its normal interface resolution at once. The switch applies at once and saves its value.
+With **Sharp UI** on, the interface has more pixels, so it uses some more graphics memory. Turn **Sharp UI** off at any time: the game then uses its normal interface resolution at once. The switch applies at once and saves its value.
