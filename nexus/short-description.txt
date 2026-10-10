@@ -1,1 +1,1 @@
-Adds in-game HUD and text scale sliders, with a smaller HUD by default (zoom 1.0 instead of the game's 1.3), and Sharp UI: clearer interface text, mostly on 4K and other wide screens.
+Adds in-game HUD and text scale sliders, with a smaller HUD by default: zoom 1.0 instead of the game's 1.3. Also fixes blurry text on 4K screens.
