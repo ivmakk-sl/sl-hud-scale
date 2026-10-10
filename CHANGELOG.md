@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-10
+
+### Added
+
+- **Sharp UI**: the game interface is drawn at a resolution close to the screen resolution, so text and lines look clearer, mostly on a wide screen, for example a 4K screen. The game limits this resolution by the graphics setting. A switch in the HUD panel turns it off, and the config key is `SharpUI` in the `[Display]` section (default `true`).
+
 ## [1.1.2] - 2026-09-29
 
 ### Removed

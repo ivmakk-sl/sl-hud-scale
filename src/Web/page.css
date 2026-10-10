@@ -1,0 +1,41 @@
+/* The rules of the page script in the OutSetting frame: the HUD panel of the settings window. The
+   script sets the place of the default mark on each slider (0 to 1 along the track) as the custom
+   property --hs-mark; the mark rule reads it. */
+
+#hudscale-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#hudscale-panel .setting-label {
+  flex-shrink: 0;
+}
+
+/* The mark of the default value on a slider. The thumb is 22px wide, so its center runs from 11px
+   to (width - 11px). */
+.hudscale-mark {
+  position: absolute;
+  top: 50%;
+  left: calc(11px + (100% - 22px) * var(--hs-mark));
+  width: 2px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  background: rgb(from var(--hs-white) r g b / 45%);
+  pointer-events: none;
+}
+
+.hudscale-value {
+  flex-shrink: 0;
+  min-width: 52px;
+  margin-left: 16px;
+  text-align: right;
+  cursor: pointer;
+  font-family: Consolas, monospace;
+  font-size: 1.1rem;
+  color: var(--hs-gold);
+}
+
+.hudscale-value:hover {
+  color: var(--hs-white);
+}

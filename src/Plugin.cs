@@ -1,16 +1,13 @@
 using System;
-using System.Collections.Generic;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
-using GameCore.HotUpdate;
-using GameCore.HotUpdate.ReduxUI;
 using HarmonyLib;
 
 namespace HudScale
 {
-    [BepInPlugin(PluginGuid, "HUD Scale", "1.1.2")]
+    [BepInPlugin(PluginGuid, "HUD Scale", "1.2.0")]
     [BepInProcess("SurvivalLog.exe")]
     public sealed class Plugin : BasePlugin
     {
@@ -21,6 +18,7 @@ namespace HudScale
         internal static ConfigEntry<bool> Verbose;
         internal static ConfigEntry<float> HudZoom;
         internal static ConfigEntry<float> HudTextScale;
+        internal static ConfigEntry<bool> SharpUI;
 
         public override void Load()
         {
@@ -38,6 +36,9 @@ namespace HudScale
                 new ConfigDescription(
                     "Multiply HUD font sizes. Icons and boxes keep their size. The default, 1.0, preserves the original font sizes. This includes text in the top timer box and unlock notifications. It excludes the weather tooltip's description line, other windows, and world labels. The HUD panel of the settings window (Esc, then Settings) also changes this value. A change of this file applies when the settings window opens or a save loads.",
                     new AcceptableValueRange<float>(0.5f, 2.0f)));
+            SharpUI = Config.Bind(
+                "Display", "SharpUI", true,
+                "Sharp UI: draw the game interface (the HUD, the windows, the title screen) at a resolution close to the screen resolution, so text and lines look clearer. The game limits this resolution by the graphics setting (on High, sharp up to a screen about 3072 pixels wide), so on a wider screen, for example a 4K screen, it draws the interface at a lower resolution and scales it up. With true, the mod removes these limits. Set false to get the game's normal interface resolution back. The Sharp UI switch in the HUD panel of the settings window (Esc, then Settings) also changes this value, at once. A change of this file applies when the settings window opens or a save loads.");
             Settings = Config;
             FileCheck = new ConfigFileCheck(Config.ConfigFilePath);
             // After the binds, so a bind that reads a value from the file does not start an install
@@ -47,6 +48,7 @@ namespace HudScale
             Harmony = new Harmony(PluginGuid);
             Patch(typeof(InstallOnReadyMessage));
             Patch(typeof(SettingsPanelMessages));
+            Patch(typeof(SharpUiApply));
             Log.LogInfo("HUD Scale loaded.");
         }
 
@@ -78,14 +80,15 @@ namespace HudScale
 
         // Each change of a setting comes here: a slider of the settings panel, a reload of the file, or
         // another config tool. BepInEx saved the file before this event, so the write time is recorded
-        // for each entry. Only the two HUD settings change the page.
+        // for each entry. The two HUD settings and Sharp UI change the page: Sharp UI for its switch,
+        // while SharpUiApply sets the pixel density at the next frame.
         private static void OnSettingChanged(object sender, SettingChangedEventArgs args)
         {
             try
             {
                 FileCheck.Record();
                 if (SettingBatch) return;
-                if (args.ChangedSetting != HudZoom && args.ChangedSetting != HudTextScale) return;
+                if (args.ChangedSetting != HudZoom && args.ChangedSetting != HudTextScale && args.ChangedSetting != SharpUI) return;
                 PageScript.Run(BuildCall(), "setting " + args.ChangedSetting.Definition.Key);
             }
             catch (Exception e) { Log.LogWarning($"HUD Scale: setting change failed: {e}"); }
@@ -98,131 +101,34 @@ namespace HudScale
             if (!FileCheck.Changed()) return;
             if (Verbose.Value) Log.LogDebug("HUD Scale: the config file changed, reading it again");
             // The record comes only after a good read, so a file that an editor is still writing is read
-            // again at the next check.
+            // again at the next check. Each caller sends one install call after the read, so the changed
+            // values send none of their own.
+            SettingBatch = true;
             try
             {
                 Settings.Reload();
                 FileCheck.Record();
             }
             catch (Exception e) { Log.LogWarning($"HUD Scale: could not read the config file: {e.Message}"); }
+            finally { SettingBatch = false; }
         }
 
-        // The install call with the current values, and the limits and the default of each config entry.
+        // The install call with the current values, the limits and the default of each config entry, the
+        // value of Sharp UI, and the panel labels in the display language.
         internal static string BuildCall()
         {
+            var texts = ModTexts.Current();
             return HudScaleLogic.BuildCall(
                 StateOf(HudZoom, HudScaleLogic.GameHudZoom),
                 StateOf(HudTextScale, HudScaleLogic.GameTextScale),
-                HudScaleLogic.Labels(LanguageType()));
-        }
-
-        // The display language of the game. The root-ready install comes before the game config loads,
-        // so a missing config gives English (1) instead of an exception.
-        private static int LanguageType()
-        {
-            try
-            {
-                var config = ConfigManager.Instance;
-                return config?.customCache != null ? (int)config.customCache.LanguageType : 1;
-            }
-            catch (Exception) { return 1; }
+                SharpUI.Value,
+                new PanelLabels(texts["title"], texts["zoom"], texts["text"], texts["sharp"]));
         }
 
         private static SettingState StateOf(ConfigEntry<float> entry, float gameValue)
         {
             var range = (AcceptableValueRange<float>)entry.Description.AcceptableValues;
             return new SettingState(entry.Value, range.MinValue, range.MaxValue, (float)entry.DefaultValue, gameValue);
-        }
-    }
-
-    // OnMessageFromJS gets each raw message of the root page. The root-ready message (type 1) comes
-    // before the panels load, so page.js can wrap notifyPageReady and scale each HUD page before it is
-    // visible. The ready message of a HUD page (type 2) installs again, for a page that was ready
-    // before the first install arrived. The Postfix leaves the game's own handling as it is.
-    [HarmonyPatch(typeof(WebUILayer), "OnMessageFromJS")]
-    internal static class InstallOnReadyMessage
-    {
-        private static void Postfix(Vuplex.WebView.EventArgs<string> eventArgs)
-        {
-            try
-            {
-                string message = eventArgs?.Value;
-                if (!HudScaleLogic.ShouldInstall(message)) return;
-                string trigger = message.Split('\u001E')[1];
-                // A hand edit of the file applies when a HUD page loads, for example at a save load.
-                if (trigger == "CoreUI1" || trigger == "CoreUI0") Plugin.ReloadIfChanged();
-                PageScript.Run(Plugin.BuildCall(), trigger.Length == 0 ? "root" : trigger);
-            }
-            catch (Exception e) { Plugin.Log.LogWarning($"HUD Scale: install failed: {e}"); }
-        }
-    }
-
-    // The settings panel sends its own type-3 messages (HUDSCALE_SET on a release, HUDSCALE_SYNC when
-    // the settings window opens). The game does not know them, so this Prefix handles each one and
-    // stops it. Each other message goes on to the game unchanged.
-    [HarmonyPatch(typeof(WebUILayer), "OnMessageFromJS")]
-    internal static class SettingsPanelMessages
-    {
-        private static bool Prefix(Vuplex.WebView.EventArgs<string> eventArgs)
-        {
-            var kind = MessageKind.None;
-            try
-            {
-                kind = HudScaleLogic.TryParseMessage(eventArgs?.Value, out float zoom, out float textScale);
-                if (kind == MessageKind.None) return true;
-                if (Plugin.Verbose.Value) Plugin.Log.LogDebug($"HUD Scale message: {kind} {zoom} {textScale}");
-                if (kind == MessageKind.Set)
-                {
-                    Plugin.SetBoth(zoom, textScale);
-                }
-                else if (kind == MessageKind.Sync)
-                {
-                    Plugin.ReloadIfChanged();
-                    PageScript.Run(Plugin.BuildCall(), "sync");
-                }
-                return false;
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.LogWarning($"HUD Scale: settings message failed: {e}");
-                // A game message always goes on to the game. A mod message does not, because the game
-                // does not know its event.
-                return kind == MessageKind.None;
-            }
-        }
-    }
-
-    // Runs page.js (an embedded resource) plus one call in the root page.
-    internal static class PageScript
-    {
-        private static string script;
-        private static readonly HashSet<string> loggedWarnings = new HashSet<string>();
-
-        private static string Script()
-        {
-            if (script != null) return script;
-            var assembly = typeof(PageScript).Assembly;
-            string name = Array.Find(assembly.GetManifestResourceNames(), n => n.EndsWith("page.js", StringComparison.Ordinal));
-            using (var stream = assembly.GetManifestResourceStream(name))
-            using (var reader = new System.IO.StreamReader(stream))
-                script = reader.ReadToEnd();
-            return script;
-        }
-
-        public static void Run(string call, string trigger)
-        {
-            var webView = ReduxUISystem.Instance?.GetWebUILayer()?.canvasWebViewPrefab?.WebView;
-            if (webView == null)
-            {
-                Plugin.Log.LogWarning("HUD Scale: web view not found");
-                return;
-            }
-            webView.ExecuteJavaScript(Script() + ";" + call + ";", (Il2CppSystem.Action<string>)(r =>
-            {
-                if (Plugin.Verbose.Value) Plugin.Log.LogDebug($"HUD Scale install ({trigger}): {call} -> {r}");
-                // Each distinct problem logs one time, so a game update is not silent but the log is not spammed.
-                if (r != "installed" && loggedWarnings.Add(r)) Plugin.Log.LogWarning($"HUD Scale page script: {r}");
-            }));
         }
     }
 }

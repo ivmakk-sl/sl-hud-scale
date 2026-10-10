@@ -1,11 +1,12 @@
 # HUD Scale
 
-HUD Scale adds HUD scale and text size sliders to the settings window in *Survival Log*. It works in any game language. By default, it reduces the game's HUD zoom from `1.3` to `1.0`, making the main HUD about 23% smaller.
+HUD Scale adds HUD scale and text size sliders and a Sharp UI switch to the settings window in *Survival Log*. It works in any game language. By default, it reduces the game's HUD zoom from `1.3` to `1.0`, making the main HUD about 23% smaller.
 
 I made this mod because the HUD feels oversized in English. The layout appears to favor compact Chinese text. English labels overlap, quest lines end in "...", and plant and trap names wrap onto two lines. The smaller HUD greatly reduces overlap in my testing. Some text can still exceed its boxes.
 
 - **Scale** resizes the main HUD's text, icons, and boxes together. This includes the story, events, plant and trap lists, stats, and buttons.
 - **Text Scale** provides a secondary adjustment for the HUD text. Icons and boxes keep their size, so you can make the text smaller without smaller icons. Its default, `1.0`, preserves the original font sizes.
+- **Sharp UI** draws the game interface (the HUD, the windows, and the title screen) at a resolution close to your screen resolution, so text and lines look clearer. The graphics setting limits the resolution of the game interface. On a wide screen, for example a 4K screen, the game draws the interface at a lower resolution and scales it up, so text looks soft. Sharp UI is on by default. Turn it off to get the game's normal interface resolution back. See [CONFIG.md](CONFIG.md#display) for when it makes a visible difference.
 
 If you also want smaller text, try **Text Scale** at `0.90`. Both sliders affect text size in the main HUD. To restore the game's HUD sizes, set **Scale** to `1.30` and **Text Scale** to `1.00`. The HUD panel remains available in the settings window.
 
@@ -18,9 +19,9 @@ The cooking window, the bag, event pop-ups, and other windows keep their size. L
 1. Load a save.
 2. Press Esc.
 3. Open **Settings**.
-4. Adjust **Scale** or **Text Scale** in the **HUD** panel, the last panel of the **General** tab (after **Interface**).
+4. Adjust **Scale** or **Text Scale**, or turn **Sharp UI** on or off, in the **HUD** panel, the last panel of the **General** tab (after **Interface**).
 
-The HUD previews your changes while you drag. Release the slider to save the value. Click its number to restore the mod's default. The mark under each slider shows that default. The HUD panel is available only after a save loads.
+The HUD previews your changes while you drag. Release the slider to save the value. Click its number to restore the mod's default. The mark under each slider shows that default. The **Sharp UI** switch applies at once and saves its value. The HUD panel is available only after a save loads.
 
 You can also edit `BepInEx\config\com.ivmakk.survivallog.hudscale.cfg`. Close the settings window before you edit the file. File edits apply when you next open the settings window or load a save. No restart is needed. See [CONFIG.md](CONFIG.md) for the config keys, defaults, and limits.
 
@@ -47,27 +48,45 @@ Delete `HudScale.dll` from the `BepInEx\plugins` folder. The HUD has its normal 
 
 ## Build
 
-This is a BepInEx 6 IL2CPP plugin. It compiles against the game's IL2CPP interop assemblies, so a game install with BepInEx set up and started once is required. Those assemblies are game-derived and are not part of this repo. The .NET 8 SDK is required.
+This is a BepInEx 6 IL2CPP plugin. It compiles against the game's IL2CPP interop assemblies. The build needs an installed copy of the game with BepInEx. Start the game once with BepInEx to generate the assemblies. This repo does not include those assemblies.
 
-```
-dotnet build src/HudScale.csproj -c Release
-```
+The build needs the .NET 8 SDK and Node 22.22.2 or a later Node 22 release. The page script uses TypeScript in `src/Web/page/`. Vite builds it into one file, which the DLL embeds. For [mise](https://mise.jdx.dev) users, `mise.toml` specifies the latest Node 22 release.
 
-`Directory.Build.props` sets `GameDir` to the default Steam install path. If the game is in another place, override it without an edit of the file: set a `GameDir` environment variable, or pass `-p:GameDir=...` on the build. The output DLL is at `src\bin\Release\HudScale.dll`.
+Run these commands from the mod root:
 
-`src/HudScaleLogic.cs` handles web view messages, parses settings panel messages, and builds calls to the page script. `src/ConfigFileCheck.cs` detects changes to the config file. Their unit tests do not need the game:
+1. If you use mise, run `mise trust` once after cloning the repo.
+2. Install the npm packages from the lock file with `npm ci`.
+3. Build the mod with `dotnet build src/HudScale.csproj -c Release`.
+
+The build runs Vite when a page source file changes. If the npm packages are missing, the build stops with a message that explains how to install them.
+
+`Directory.Build.props` sets `GameDir` to the default Steam install path. For another location, set the `GameDir` environment variable or pass `-p:GameDir=...` to the build command. The output DLL is at `src\bin\Release\HudScale.dll`.
+
+These source files contain logic that does not need the game:
+
+- `src/Hud/HudScaleLogic.cs` decides which web view message installs the page script.
+- `src/Panel/PanelLogic.cs` reads the messages of the HUD panel, and `src/Panel/ConfigFileCheck.cs` detects changes to the config file.
+- `src/Web/InstallCall.cs` builds the call to the page script and the commands that send the script once.
+- `src/SharpUi/SharpUiLogic.cs` calculates the pixel density that fits the screen.
+- The i18n files `src/i18n/*.json` hold the panel labels, read by the i18n library copy in `src/Shared/i18n/`.
+
+Run their unit tests with this command. The tests do not need the game.
 
 ```
 dotnet test tests/HudScale.Tests
 ```
 
-The page script `src/page.js` has its own test, which runs it against the real `CoreUI1.html`, `CoreUI0.html`, and `OutSetting.html` of the installed game (Node with jsdom). Run it after a game update. It needs the game install, and `SL_GAME_DIR` overrides the default Steam path:
+The page tests use Vitest with jsdom. They run the built script against `CoreUI1.html`, `CoreUI0.html`, and `OutSetting.html` from the installed game. Run them after a game update. Set `SL_GAME_DIR` if the game is outside the default Steam path.
+
+Run the page tests, CSS lint, and type check from the mod root:
 
 ```
-cd tests/page
-npm install
 npm test
+npm run lint
+npm run typecheck
 ```
+
+Run `npm run dev` to preview the HUD and the HUD panel with a simulated state in a browser. The preview reloads when a page file changes. Use it to check appearance and layout. Check behavior in the game.
 
 ## Package
 

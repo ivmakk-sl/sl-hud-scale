@@ -51,13 +51,20 @@ public class HudScaleLogicTests
 
     private static readonly SettingState Zoom = new SettingState(1.0f, 0.5f, 3.0f, 1.0f, 1.3f);
     private static readonly SettingState Text = new SettingState(1.0f, 0.5f, 2.0f, 1.0f, 1.0f);
+    private static readonly PanelLabels English = new PanelLabels("HUD", "Scale", "Text Scale", "Sharp UI");
 
     [Fact]
     public void CallCarriesTheStateOfEachSettingAndTheLabels()
     {
         Assert.Equal(
-            "window.__hudscale.install({zoom:{value:1,min:0.5,max:3,def:1,game:1.3},text:{value:1,min:0.5,max:2,def:1,game:1},labels:{title:\"HUD\",zoom:\"Scale\",text:\"Text Scale\"}})",
-            HudScaleLogic.BuildCall(Zoom, Text, HudScaleLogic.Labels(1)));
+            "window.__hudscale.install({zoom:{value:1,min:0.5,max:3,def:1,game:1.3},text:{value:1,min:0.5,max:2,def:1,game:1},sharp:true,labels:{title:\"HUD\",zoom:\"Scale\",text:\"Text Scale\",sharp:\"Sharp UI\"}})",
+            HudScaleLogic.BuildCall(Zoom, Text, true, English));
+    }
+
+    [Fact]
+    public void CallCarriesSharpUiOff()
+    {
+        Assert.Contains(",sharp:false,", HudScaleLogic.BuildCall(Zoom, Text, false, English));
     }
 
     [Fact]
@@ -66,31 +73,38 @@ public class HudScaleLogicTests
         var gameZoom = new SettingState(1.3f, 0.5f, 3.0f, 1.0f, 1.3f);
         Assert.StartsWith(
             "window.__hudscale.install({zoom:{value:1.3,",
-            HudScaleLogic.BuildCall(gameZoom, Text, HudScaleLogic.Labels(1)));
-    }
-
-    [Theory]
-    [InlineData(1)]
-    [InlineData(7)]
-    public void EachLanguageButChineseGivesEnglishLabels(int languageType)
-    {
-        var labels = HudScaleLogic.Labels(languageType);
-        Assert.Equal(("HUD", "Scale", "Text Scale"), (labels.Title, labels.Zoom, labels.Text));
+            HudScaleLogic.BuildCall(gameZoom, Text, true, English));
     }
 
     [Fact]
-    public void ChineseGivesChineseLabels()
+    public void InstallCommandRunsTheCallOnlyWhenTheRootPageHasTheScript()
     {
-        var labels = HudScaleLogic.Labels(0);
-        Assert.Equal(("主界面", "缩放", "文字缩放"), (labels.Title, labels.Zoom, labels.Text));
+        Assert.Equal(
+            "window.__hudscale?window.__hudscale.install({}):'no script'",
+            HudScaleLogic.InstallCommand("window.__hudscale.install({})"));
+        Assert.Equal("no script", HudScaleLogic.NoScript);
+    }
+
+    [Fact]
+    public void FullCommandIsTheScriptThenTheCall()
+    {
+        Assert.Equal("S;window.__hudscale.install({});", HudScaleLogic.FullCommand("S", "window.__hudscale.install({})"));
+    }
+
+    [Fact]
+    public void OnlyTheRootReadyTriggerSendsTheFullScriptAtOnce()
+    {
+        Assert.True(HudScaleLogic.SendsFullScript(HudScaleLogic.RootTrigger));
+        foreach (string trigger in new[] { "CoreUI1", "CoreUI0", "OutSetting", "sync", "set", "setting HudZoom" })
+            Assert.False(HudScaleLogic.SendsFullScript(trigger));
     }
 
     [Fact]
     public void ChineseLabelsAreEscapedToPlainAscii()
     {
-        string call = HudScaleLogic.BuildCall(Zoom, Text, HudScaleLogic.Labels(0));
+        string call = HudScaleLogic.BuildCall(Zoom, Text, true, new PanelLabels("主界面", "缩放", "文字缩放", "高清界面"));
         Assert.All(call, c => Assert.InRange(c, (char)0x20, (char)0x7E));
-        Assert.Contains("labels:{title:\"\\u4E3B\\u754C\\u9762\",zoom:\"\\u7F29\\u653E\",text:\"\\u6587\\u5B57\\u7F29\\u653E\"}", call);
+        Assert.Contains("labels:{title:\"\\u4E3B\\u754C\\u9762\",zoom:\"\\u7F29\\u653E\",text:\"\\u6587\\u5B57\\u7F29\\u653E\",sharp:\"\\u9AD8\\u6E05\\u754C\\u9762\"}", call);
     }
 
     // The settings panel posts its own type-3 messages: 3, OutSetting, the event name, the data.
@@ -99,7 +113,7 @@ public class HudScaleLogicTests
     [Fact]
     public void SetMessageGivesBothValues()
     {
-        Assert.Equal(MessageKind.Set, HudScaleLogic.TryParseMessage(ModMsg("HUDSCALE_SET", "1.05,0.9"), out float zoom, out float text));
+        Assert.Equal(MessageKind.Set, HudScaleLogic.TryParseMessage(ModMsg("HUDSCALE_SET", "1.05,0.9"), out float zoom, out float text, out _));
         Assert.Equal((1.05f, 0.9f), (zoom, text));
     }
 
@@ -110,7 +124,7 @@ public class HudScaleLogicTests
         System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
         try
         {
-            Assert.Equal(MessageKind.Set, HudScaleLogic.TryParseMessage(ModMsg("HUDSCALE_SET", "1.05,0.9"), out float zoom, out float text));
+            Assert.Equal(MessageKind.Set, HudScaleLogic.TryParseMessage(ModMsg("HUDSCALE_SET", "1.05,0.9"), out float zoom, out float text, out _));
             Assert.Equal((1.05f, 0.9f), (zoom, text));
         }
         finally
@@ -122,10 +136,21 @@ public class HudScaleLogicTests
     [Fact]
     public void SyncMessageIsRecognized()
     {
-        Assert.Equal(MessageKind.Sync, HudScaleLogic.TryParseMessage(ModMsg("HUDSCALE_SYNC", ""), out _, out _));
+        Assert.Equal(MessageKind.Sync, HudScaleLogic.TryParseMessage(ModMsg("HUDSCALE_SYNC", ""), out _, out _, out _));
     }
 
     [Theory]
+    [InlineData("1", true)]
+    [InlineData("0", false)]
+    public void SharpMessageGivesTheValue(string data, bool expected)
+    {
+        Assert.Equal(MessageKind.Sharp, HudScaleLogic.TryParseMessage(ModMsg("HUDSCALE_SHARP", data), out _, out _, out bool sharp));
+        Assert.Equal(expected, sharp);
+    }
+
+    [Theory]
+    [InlineData("HUDSCALE_SHARP", "true")]
+    [InlineData("HUDSCALE_SHARP", "")]
     [InlineData("HUDSCALE_SET", "1.05")]
     [InlineData("HUDSCALE_SET", "big,0.9")]
     [InlineData("HUDSCALE_SET", "NaN,0.9")]
@@ -134,13 +159,13 @@ public class HudScaleLogicTests
     [InlineData("HUDSCALE_OTHER", "")]
     public void UnusableModMessageIsInvalid(string name, string data)
     {
-        Assert.Equal(MessageKind.Invalid, HudScaleLogic.TryParseMessage(ModMsg(name, data), out _, out _));
+        Assert.Equal(MessageKind.Invalid, HudScaleLogic.TryParseMessage(ModMsg(name, data), out _, out _, out _));
     }
 
     [Fact]
     public void ModMessageWithNoDataFieldIsInvalid()
     {
-        Assert.Equal(MessageKind.Invalid, HudScaleLogic.TryParseMessage("3\x1EOutSetting\x1EHUDSCALE_SET", out _, out _));
+        Assert.Equal(MessageKind.Invalid, HudScaleLogic.TryParseMessage("3\x1EOutSetting\x1EHUDSCALE_SET", out _, out _, out _));
     }
 
     [Theory]
@@ -152,7 +177,7 @@ public class HudScaleLogicTests
     [InlineData(null)]
     public void OtherMessagesAreNotModMessages(string message)
     {
-        Assert.Equal(MessageKind.None, HudScaleLogic.TryParseMessage(message, out _, out _));
+        Assert.Equal(MessageKind.None, HudScaleLogic.TryParseMessage(message, out _, out _, out _));
     }
 
     [Fact]
@@ -165,7 +190,7 @@ public class HudScaleLogicTests
             var zoom = new SettingState(1.05f, 0.5f, 3.0f, 1.0f, 1.3f);
             Assert.StartsWith(
                 "window.__hudscale.install({zoom:{value:1.05,min:0.5,max:3,def:1,game:1.3}",
-                HudScaleLogic.BuildCall(zoom, Text, HudScaleLogic.Labels(1)));
+                HudScaleLogic.BuildCall(zoom, Text, true, English));
         }
         finally
         {

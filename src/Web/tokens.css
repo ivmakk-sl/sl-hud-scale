@@ -1,0 +1,8 @@
+/* The colors of HUD Scale, once. The page script puts this file before page.css in the OutSetting
+   frame. A rule uses a token, never a raw color (stylelint checks it); an opacity stays at the rule,
+   through the relative color syntax: rgb(from var(--hs-white) r g b / 45%). */
+:root {
+  --hs-white: #fff;
+  /* The color of the value numbers, the gold of the game's settings window. */
+  --hs-gold: #eba308;
+}
