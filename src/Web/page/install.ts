@@ -19,19 +19,20 @@ function wrapNotifyPageReady(): void {
   hs.wrapped = true;
 }
 
-// A page that does not exist yet is normal: the wrapper applies to it when it is ready. The first page
-// error is the result.
+// A page that does not exist yet is normal: the wrapper applies to it when it is ready. A page error does
+// not stop the other pages, and the first page error is the result.
 export function install(state: PageState): string {
   try {
     // A value that the HUD shows but that is not saved yet stays, so a close saves what the player sees.
     if (hs.unsaved && hs.state) state[hs.unsaved].value = hs.state[hs.unsaved].value;
     hs.state = state;
     wrapNotifyPageReady();
+    let result = 'installed';
     for (const pageId of HUD_PAGES.concat([SETTINGS_PAGE])) {
       const status = pageId === SETTINGS_PAGE ? panel() : apply(pageId);
-      if (status.indexOf('error: ') === 0) return 'error: ' + pageId + ': ' + status.substring(7);
+      if (result === 'installed' && status.indexOf('error: ') === 0) result = 'error: ' + pageId + ': ' + status.substring(7);
     }
-    return 'installed';
+    return result;
   } catch (e) {
     return 'error: ' + (e && (e as Error).message);
   }

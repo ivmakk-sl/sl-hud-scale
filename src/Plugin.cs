@@ -101,13 +101,16 @@ namespace HudScale
             if (!FileCheck.Changed()) return;
             if (Verbose.Value) Log.LogDebug("HUD Scale: the config file changed, reading it again");
             // The record comes only after a good read, so a file that an editor is still writing is read
-            // again at the next check.
+            // again at the next check. Each caller sends one install call after the read, so the changed
+            // values send none of their own.
+            SettingBatch = true;
             try
             {
                 Settings.Reload();
                 FileCheck.Record();
             }
             catch (Exception e) { Log.LogWarning($"HUD Scale: could not read the config file: {e.Message}"); }
+            finally { SettingBatch = false; }
         }
 
         // The install call with the current values, the limits and the default of each config entry, the

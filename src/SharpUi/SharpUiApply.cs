@@ -27,8 +27,10 @@ namespace HudScale
                 var layer = ReduxUISystem.Instance?.GetWebUILayer();
                 if (!on)
                 {
-                    if (lastOn && layer != null)
+                    if (lastOn)
                     {
+                        // Without the layer, the switch back to the game's value waits for a later frame.
+                        if (layer == null) return;
                         if (Plugin.Verbose.Value) Plugin.Log.LogDebug("Sharp UI: off, the game sets the pixel density");
                         layer.RefreshPixelDensity();
                     }
