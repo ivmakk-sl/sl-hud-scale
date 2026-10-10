@@ -55,7 +55,11 @@ function buildSharpRow(doc: Document): HTMLElement {
   toggle.appendChild(el(doc, 'span', 'knob'));
   row.appendChild(toggle);
   input.addEventListener('change', () => {
-    if (!isOpen(doc)) return;
+    if (!isOpen(doc)) {
+      // A click on the closed, transparent window: the switch keeps showing the stored value.
+      input.checked = !!hs.state?.sharp;
+      return;
+    }
     hs.state!.sharp = input.checked;
     send('HUDSCALE_SHARP', input.checked ? '1' : '0');
   });

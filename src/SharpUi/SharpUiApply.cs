@@ -14,6 +14,8 @@ namespace HudScale
     // value again. The prefab and its RectTransform are kept between frames, so a frame reads only numbers and
     // makes no interop wrapper objects. They are looked up again when Unity destroyed them (the game destroys
     // the web UI root before it builds a new one) and once a second, in case the game holds a new prefab.
+    // While the game has no prefab (at the start, during a browser rebuild), a lookup runs at most every
+    // RetrySeconds.
     [HarmonyPatch(typeof(HotUpdateCaller), nameof(HotUpdateCaller.Update))]
     internal static class SharpUiApply
     {
@@ -24,6 +26,7 @@ namespace HudScale
         private static RectTransform rect;
         private static float lookedUpAt = float.NegativeInfinity;
         private const float LookUpSeconds = 1f;
+        private const float RetrySeconds = 0.1f;
 
         private static void Postfix()
         {
@@ -45,8 +48,10 @@ namespace HudScale
                 }
                 lastOn = true;
                 float now = Time.realtimeSinceStartup;
-                if (prefab == null || rect == null || now - lookedUpAt >= LookUpSeconds)
+                bool cached = prefab != null && rect != null;
+                if (!cached || now - lookedUpAt >= LookUpSeconds)
                 {
+                    if (!cached && now - lookedUpAt < RetrySeconds) return;
                     lookedUpAt = now;
                     prefab = ReduxUISystem.Instance?.GetWebUILayer()?.canvasWebViewPrefab;
                     rect = prefab == null ? null : prefab.transform.TryCast<RectTransform>();
