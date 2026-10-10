@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>HUD Scale dev harness</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #333; }
+    body { display: flex; }
+    iframe { border: 0; flex: 1 1 0; min-width: 0; height: 100%; }
+  </style>
+</head>
+<body>
+  <!-- The root page of the game (Root.html) holds each page as an iframe whose id is the page id. -->
+  <iframe id="CoreUI1" src="/UI/CoreUI1/CoreUI1.html"></iframe>
+  <iframe id="OutSetting" src="/UI/OutSetting/OutSetting.html"></iframe>
+  <script type="module" src="./dev.ts"></script>
+</body>
+</html>

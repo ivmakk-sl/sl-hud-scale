@@ -1,3 +1,6 @@
+v1.2.0 - 2026-10-10
+Added: Sharp UI. The whole game interface is drawn at the full resolution of your screen, so text and lines are sharp on a wide screen, for example a 4K screen. Turn it off with the Sharp UI switch in the HUD panel of the settings window.
+
 v1.1.2 - 2026-09-29
 Removed: Support for game versions before 1.1.18153 (the Autumn Update). This version needs Survival Log 1.1.18153 or later.
 Fixed: The HUD panel in the new settings window of the Autumn Update is its own panel, the last panel of the General tab after Interface. Before, it showed inside the Sound panel with a second title.

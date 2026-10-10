@@ -5,41 +5,45 @@
 // page.js runs in the root page (Root.html) and reaches each HUD page through the iframe whose id is
 // the page id. This test loads each HUD page in its own jsdom window and gives a small root window a
 // getElementById that returns { contentWindow } for those ids.
-'use strict';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import url from 'node:url';
+import vm from 'node:vm';
+import { JSDOM } from 'jsdom';
+import { test, vi, type TestContext } from 'vitest';
 
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const url = require('node:url');
-const vm = require('node:vm');
-const { JSDOM } = require('jsdom');
+// The jsdom windows carry the game's page globals and the test's own hooks, which have no types.
+type Win = any;
+
+const HERE = path.dirname(url.fileURLToPath(import.meta.url));
 
 const GAME_DIR = process.env.SL_GAME_DIR ||
   'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Survival Log';
 const UI_DIR = path.join(GAME_DIR, 'SurvivalLog_Data', 'StreamingAssets', 'WebUI', 'UI');
-const PAGES = {
+const PAGES: Record<string, string> = {
   CoreUI1: path.join(UI_DIR, 'CoreUI1', 'CoreUI1.html'),
   CoreUI0: path.join(UI_DIR, 'CoreUI0', 'CoreUI0.html')
 };
-const PAGE_JS_PATH = path.join(__dirname, '..', '..', 'src', 'page.js');
+// The Vite bundle of src/Web/page/ (npm test builds it first).
+const PAGE_JS_PATH = path.join(HERE, '..', '..', 'obj', 'page', 'page.js');
 
 // The pause window with the settings window, which gets the HUD panel. It is not a HUD page.
 const OUT_SETTING = path.join(UI_DIR, 'OutSetting', 'OutSetting.html');
-const PAGE_FILES = { ...PAGES, OutSetting: OUT_SETTING };
+const PAGE_FILES: Record<string, string> = { ...PAGES, OutSetting: OUT_SETTING };
 
 // The tests skip only when the game is not installed. When the game is there but a page file is
 // missing (for example after a game update), each test of that page fails.
 const gameFilesExist = fs.existsSync(UI_DIR);
 
 if (!gameFilesExist) {
-  test('page.js against the HUD pages', { skip: `game files not found under SL_GAME_DIR (${GAME_DIR}); set SL_GAME_DIR to the game folder` }, () => {});
+  test.skip(`page.js against the HUD pages: game files not found under SL_GAME_DIR (${GAME_DIR}); set SL_GAME_DIR to the game folder`, () => {});
 } else {
   const pageJs = fs.readFileSync(PAGE_JS_PATH, 'utf8');
 
   // The HUD pages start their own requestAnimationFrame loops, which keep a jsdom window alive.
-  // t.after closes each window when its test is done.
-  async function loadPage(t, pageId) {
+  // t.onTestFinished closes each window when its test is done.
+  async function loadPage(t: TestContext, pageId: string): Promise<Win> {
     const file = PAGE_FILES[pageId];
     const dom = new JSDOM(fs.readFileSync(file, 'utf8'), {
       url: url.pathToFileURL(file).href,
@@ -47,7 +51,7 @@ if (!gameFilesExist) {
       resources: 'usable',
       pretendToBeVisual: true
     });
-    t.after(() => dom.window.close());
+    t.onTestFinished(() => dom.window.close());
     await new Promise((resolve, reject) => {
       dom.window.addEventListener('load', resolve);
       setTimeout(() => reject(new Error(`${pageId}.html did not fire load within 5s`)), 5000);
@@ -56,46 +60,46 @@ if (!gameFilesExist) {
   }
 
   // A blank window that stands in for Root.html. frames maps a page id to the window of its iframe.
-  function makeRoot(t, frames) {
-    const root = new JSDOM('<!doctype html><html><body></body></html>', {
+  function makeRoot(t: TestContext, frames: Record<string, Win>): Win {
+    const root: Win = new JSDOM('<!doctype html><html><body></body></html>', {
       url: 'file:///Root.html',
       pretendToBeVisual: true
     }).window;
-    t.after(() => root.close());
+    t.onTestFinished(() => root.close());
     const originalGetById = root.document.getElementById.bind(root.document);
-    root.document.getElementById = (id) =>
+    root.document.getElementById = (id: string): any =>
       frames[id] ? { id, contentWindow: frames[id] } : originalGetById(id);
     vm.createContext(root);
     return root;
   }
 
   // vm.runInContext (not root.eval) so the bare "window" of page.js is the root window, as in a browser.
-  function run(root, expr) {
+  function run(root: Win, expr: string): any {
     return vm.runInContext(pageJs + ';' + expr, root, { filename: 'page.js' });
   }
 
   // The state object that C# sends in the install call (HudScaleLogic.BuildCall). A value of null
   // stands for the game's value of that setting, which means "leave the page as the game has it".
-  function state(zoom, textScale) {
+  function state(zoom: number | null, textScale: number | null, sharp = true): string {
     const z = zoom == null ? 1.3 : zoom;
     const x = textScale == null ? 1 : textScale;
-    return `{zoom:{value:${z},min:0.5,max:3,def:1,game:1.3},text:{value:${x},min:0.5,max:2,def:1,game:1},` +
-      'labels:{title:"HUD",zoom:"Scale",text:"Text Scale"}}';
+    return `{zoom:{value:${z},min:0.5,max:3,def:1,game:1.3},text:{value:${x},min:0.5,max:2,def:1,game:1},sharp:${sharp},` +
+      'labels:{title:"HUD",zoom:"Scale",text:"Text Scale",sharp:"Sharp UI"}}';
   }
 
-  function installCall(zoom, textScale) {
-    return `window.__hudscale.install(${state(zoom, textScale)})`;
+  function installCall(zoom: number | null, textScale: number | null, sharp = true): string {
+    return `window.__hudscale.install(${state(zoom, textScale, sharp)})`;
   }
 
   // Sets the state that install() stores, for the tests of apply() alone.
-  function setFactors(root, zoom, textScale) {
+  function setFactors(root: Win, zoom: number | null, textScale: number | null) {
     run(root, `window.__hudscale.state = ${state(zoom, textScale)};`);
   }
 
   // Each style rule with a px font size, as [rule, value], in document order, nested rules included.
-  function pxFontRules(win) {
-    const out = [];
-    const walk = (rules) => {
+  function pxFontRules(win: Win): [Win, string][] {
+    const out: [Win, string][] = [];
+    const walk = (rules: Win) => {
       for (const rule of rules) {
         if (rule.cssRules) walk(rule.cssRules);
         if (!rule.style) continue;
@@ -109,7 +113,7 @@ if (!gameFilesExist) {
 
   test('CoreUI1: text scale 0.9 makes a 12px rule 10.8px', async (t) => {
     const win = await loadPage(t, 'CoreUI1');
-    const [rule] = pxFontRules(win).find(([, v]) => v === '12px');
+    const [rule] = pxFontRules(win).find(([, v]) => v === '12px')!;
     const root = makeRoot(t, { CoreUI1: win });
     setFactors(root, null, 0.9);
 
@@ -121,7 +125,7 @@ if (!gameFilesExist) {
 
   test('CoreUI1: a second apply scales from the original size, not from the scaled size', async (t) => {
     const win = await loadPage(t, 'CoreUI1');
-    const [rule] = pxFontRules(win).find(([, v]) => v === '12px');
+    const [rule] = pxFontRules(win).find(([, v]) => v === '12px')!;
     const root = makeRoot(t, { CoreUI1: win });
     setFactors(root, null, 0.9);
     run(root, "window.__hudscale.apply('CoreUI1')");
@@ -147,7 +151,7 @@ if (!gameFilesExist) {
 
   test('CoreUI1: a sheet that throws on cssRules is skipped, and the other sheets still scale', async (t) => {
     const win = await loadPage(t, 'CoreUI1');
-    const [rule] = pxFontRules(win).find(([, v]) => v === '12px');
+    const [rule] = pxFontRules(win).find(([, v]) => v === '12px')!;
     // A cross-origin sheet throws a SecurityError on cssRules in a browser. Put one before the game sheet.
     const blocked = win.document.createElement('style');
     win.document.head.insertBefore(blocked, win.document.head.firstChild);
@@ -167,8 +171,8 @@ if (!gameFilesExist) {
   });
 
   // jsdom has no zoom support, so the tests watch the writes to body.style.zoom with a setter spy.
-  function spyZoom(win) {
-    const writes = [];
+  function spyZoom(win: Win): string[] {
+    const writes: string[] = [];
     let value = '';
     Object.defineProperty(win.document.body.style, 'zoom', {
       configurable: true,
@@ -203,7 +207,7 @@ if (!gameFilesExist) {
 
   // Adds a style the way the other mods do: text first, then appendChild on the head. The observer
   // runs as a microtask, so a short wait lets it finish.
-  async function addModStyle(win, css) {
+  async function addModStyle(win: Win, css: string): Promise<string> {
     const style = win.document.createElement('style');
     style.textContent = css;
     win.document.head.appendChild(style);
@@ -225,7 +229,7 @@ if (!gameFilesExist) {
     let observers = 0;
     const NativeObserver = win.MutationObserver;
     win.MutationObserver = class extends NativeObserver {
-      constructor(cb) { super(cb); observers++; }
+      constructor(cb: MutationCallback) { super(cb); observers++; }
     };
     const root = makeRoot(t, { CoreUI1: win });
     setFactors(root, null, 0.9);
@@ -237,7 +241,7 @@ if (!gameFilesExist) {
     assert.equal(observers, 1);
   });
 
-  function countResize(win) {
+  function countResize(win: Win) {
     const count = { n: 0 };
     win.addEventListener('resize', () => { count.n++; });
     return count;
@@ -265,8 +269,8 @@ if (!gameFilesExist) {
     assert.equal(resize.n, 0);
   });
 
-  function fontOf12pxRule(win) {
-    return pxFontRules(win).find(([, v]) => v === '12px')[0];
+  function fontOf12pxRule(win: Win): Win {
+    return pxFontRules(win).find(([, v]) => v === '12px')![0];
   }
 
   test('install scales each HUD frame that exists and returns "installed"', async (t) => {
@@ -284,9 +288,9 @@ if (!gameFilesExist) {
 
   // Stands in for the notifyPageReady of Root.html, which makes the frame visible. It records the
   // font size of the 12px rule of CoreUI1 at the moment it runs.
-  function stubNotifyPageReady(root, frames) {
-    const calls = [];
-    root.notifyPageReady = (pageId) => {
+  function stubNotifyPageReady(root: Win, frames: Record<string, Win>) {
+    const calls: { pageId: string; size: string | null }[] = [];
+    root.notifyPageReady = (pageId: string) => {
       const win = frames.CoreUI1;
       calls.push({ pageId, size: win ? fontOf12pxRule0(win) : null });
     };
@@ -294,13 +298,13 @@ if (!gameFilesExist) {
   }
 
   // The rule that was 12px when the page loaded, read before any scale, cached on the window.
-  function fontOf12pxRule0(win) {
+  function fontOf12pxRule0(win: Win): string {
     if (!win.__testRule) win.__testRule = fontOf12pxRule(win);
     return win.__testRule.style.getPropertyValue('font-size');
   }
 
   test('after install, a new CoreUI1 frame is scaled before the root makes it visible', async (t) => {
-    const frames = {};
+    const frames: Record<string, Win> = {};
     const root = makeRoot(t, frames);
     const calls = stubNotifyPageReady(root, frames);
     run(root, installCall(null, 0.9));
@@ -325,7 +329,7 @@ if (!gameFilesExist) {
   });
 
   test('a second install does not wrap notifyPageReady again, and uses the new factors', async (t) => {
-    const frames = {};
+    const frames: Record<string, Win> = {};
     const root = makeRoot(t, frames);
     const calls = stubNotifyPageReady(root, frames);
     run(root, installCall(null, 0.9));
@@ -341,7 +345,7 @@ if (!gameFilesExist) {
   // The exact strings that the C# tests assert for HudScaleLogic.BuildCall, so the two sides cannot
   // drift apart.
   const CSHARP_DEFAULTS_CALL = 'window.__hudscale.install({zoom:{value:1,min:0.5,max:3,def:1,game:1.3},' +
-    'text:{value:1,min:0.5,max:2,def:1,game:1},labels:{title:"HUD",zoom:"Scale",text:"Text Scale"}})';
+    'text:{value:1,min:0.5,max:2,def:1,game:1},sharp:true,labels:{title:"HUD",zoom:"Scale",text:"Text Scale",sharp:"Sharp UI"}})';
   const CSHARP_GAME_VALUES_CALL = CSHARP_DEFAULTS_CALL.replace('{value:1,min:0.5,max:3', '{value:1.3,min:0.5,max:3');
 
   test('the C# call at the mod defaults zooms CoreUI1 to 1 and leaves the text', async (t) => {
@@ -452,8 +456,8 @@ if (!gameFilesExist) {
   // is divided by the text scale that their font size gets.
 
   // The first style rule whose selector is exactly this text, nested rules included.
-  function ruleOf(win, selector) {
-    const find = (rules) => {
+  function ruleOf(win: Win, selector: string): Win {
+    const find = (rules: Win): Win => {
       for (const rule of rules) {
         if (rule.selectorText === selector) return rule;
         const nested = rule.cssRules && find(rule.cssRules);
@@ -491,7 +495,7 @@ if (!gameFilesExist) {
     { pageId: 'CoreUI0', name: 'survival log', font: '.log-btn-right', icon: '.icon-svg' }
   ];
 
-  function iconSize(win, c) {
+  function iconSize(win: Win, c: { font: string; icon: string }): number {
     const font = parseFloat(ruleOf(win, c.font).style.getPropertyValue('font-size'));
     return font * parseFloat(ruleOf(win, c.icon).style.getPropertyValue('width'));
   }
@@ -541,7 +545,7 @@ if (!gameFilesExist) {
     const stroke = ruleOf(win, '.icon-svg-stroke');
     let writes = 0;
     const setProperty = stroke.style.setProperty.bind(stroke.style);
-    stroke.style.setProperty = (...args) => { writes++; return setProperty(...args); };
+    stroke.style.setProperty = (...args: [string, string]) => { writes++; return setProperty(...args); };
     const root = makeRoot(t, { CoreUI0: win });
 
     run(root, installCall(null, null));
@@ -622,15 +626,15 @@ if (!gameFilesExist) {
         win.postMessage({ type: 'WebUI_CoreUI1_BtnActiveMsg', data: { phoneActive: true, bagActive: true } }, '*');
         await new Promise((resolve) => win.setTimeout(resolve, 50));
       }
-      const rules = [];
-      const walk = (list) => {
+      const rules: Win[] = [];
+      const walk = (list: Win) => {
         for (const rule of list) {
           if (rule.cssRules) walk(rule.cssRules);
           if (rule.style) rules.push(rule);
         }
       };
       for (const sheet of win.document.styleSheets) walk(sheet.cssRules);
-      const isEm = (v) => /^[\d.]+em$/.test(v);
+      const isEm = (v: string) => /^[\d.]+em$/.test(v);
       const emRules = rules.filter((r) =>
         ['width', 'height', 'min-width', 'min-height', 'max-width', 'max-height'].some((p) => isEm(r.style.getPropertyValue(p))));
       const fontRules = rules.filter((r) => r.style.getPropertyValue('font-size'));
@@ -655,12 +659,12 @@ if (!gameFilesExist) {
 
   // The HUD panel of the settings window (OutSetting).
 
-  function panelOf(win) {
+  function panelOf(win: Win): Win {
     return win.document.getElementById('hudscale-panel');
   }
 
   // The panel of the game that holds the Action Feedback setting: the Interface panel.
-  function interfacePanel(win) {
+  function interfacePanel(win: Win): Win {
     return win.document.getElementById('actionEchoCheck').closest('.settings-section');
   }
 
@@ -707,7 +711,7 @@ if (!gameFilesExist) {
     assert.equal(win.document.getElementById('hudscale-style'), null);
   });
 
-  function rowOf(win, key) {
+  function rowOf(win: Win, key: string) {
     const row = panelOf(win).querySelector(`[data-hudscale="${key}"]`);
     return {
       input: row.querySelector('input'),
@@ -715,6 +719,34 @@ if (!gameFilesExist) {
       number: row.querySelector('.hudscale-value').textContent
     };
   }
+
+  // The Sharp UI row: its label and the checkbox of the game's switch markup.
+  function sharpRow(win: Win) {
+    const row = panelOf(win).querySelector('[data-hudscale="sharp"]');
+    return {
+      row,
+      label: row.querySelector('.setting-label').textContent,
+      input: row.querySelector('label.setting-toggle > input[type=checkbox]')
+    };
+  }
+
+  test('OutSetting: the third row is the Sharp UI switch in the markup of the game switch, and shows the value', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    const root = makeRoot(t, { OutSetting: win });
+
+    run(root, installCall(null, null, true));
+
+    const rows = [...panelOf(win).querySelectorAll('.setting-row')].map((r: Win) => r.getAttribute('data-hudscale'));
+    assert.deepEqual(rows, ['zoom', 'text', 'sharp']);
+    const sharp = sharpRow(win);
+    assert.equal(sharp.label, 'Sharp UI');
+    const toggle = sharp.row.querySelector('label.setting-toggle');
+    assert.deepEqual([...toggle.children].map((e: Win) => e.tagName + '.' + e.className), ['INPUT.', 'SPAN.track', 'SPAN.knob']);
+    assert.equal(sharp.input.checked, true);
+
+    run(root, installCall(null, null, false));
+    assert.equal(sharpRow(win).input.checked, false);
+  });
 
   test('OutSetting: the Sound panel keeps its own sliders and holds no HUD slider', async (t) => {
     const win = await loadPage(t, 'OutSetting');
@@ -754,20 +786,35 @@ if (!gameFilesExist) {
     assert.equal(rowOf(win, 'zoom').number, '1.03');
   });
 
+  // The script sets only the place of the default mark (0 to 1 along the track); the rule of
+  // page.css turns it into the left offset.
+  test('OutSetting: the default mark gets its place as a custom property that a rule reads', async (t) => {
+    const win = await loadPage(t, 'OutSetting');
+    const root = makeRoot(t, { OutSetting: win });
+    run(root, installCall(null, null));
+
+    const mark = panelOf(win).querySelector('[data-hudscale="zoom"] .hudscale-mark');
+    assert.equal(mark.style.getPropertyValue('--hs-mark'), '0.2');
+    assert.equal(mark.style.getPropertyValue('left'), '');
+    const style = win.document.getElementById('hudscale-style').textContent;
+    assert.match(style, /\.hudscale-mark\s*\{[^}]*left:\s*calc\(11px \+ \(100% - 22px\) \* var\(--hs-mark\)\)/);
+  });
+
   test('OutSetting: a second install changes the labels and the values and adds no second panel', async (t) => {
     const win = await loadPage(t, 'OutSetting');
     const root = makeRoot(t, { OutSetting: win });
     run(root, installCall(null, null));
-    assert.deepEqual([panelOf(win).querySelector('.hudscale-title').textContent, rowOf(win, 'zoom').label, rowOf(win, 'text').label],
-      ['HUD', 'Scale', 'Text Scale']);
+    assert.deepEqual([panelOf(win).querySelector('.hudscale-title').textContent, rowOf(win, 'zoom').label, rowOf(win, 'text').label, sharpRow(win).label],
+      ['HUD', 'Scale', 'Text Scale', 'Sharp UI']);
 
     run(root, 'window.__hudscale.install(' + state(1.2, null).replace(
-      'labels:{title:"HUD",zoom:"Scale",text:"Text Scale"}', 'labels:{title:"\u4E3B\u754C\u9762",zoom:"\u7F29\u653E",text:"\u6587\u5B57\u7F29\u653E"}') + ')');
+      'labels:{title:"HUD",zoom:"Scale",text:"Text Scale",sharp:"Sharp UI"}',
+      'labels:{title:"\u4E3B\u754C\u9762",zoom:"\u7F29\u653E",text:"\u6587\u5B57\u7F29\u653E",sharp:"\u9AD8\u6E05\u754C\u9762"}') + ')');
 
     assert.equal(win.document.querySelectorAll('#hudscale-panel').length, 1);
     assert.equal(win.document.querySelectorAll('#hudscale-style').length, 1);
-    assert.deepEqual([panelOf(win).querySelector('.hudscale-title').textContent, rowOf(win, 'zoom').label, rowOf(win, 'text').label],
-      ['主界面', '缩放', '文字缩放']);
+    assert.deepEqual([panelOf(win).querySelector('.hudscale-title').textContent, rowOf(win, 'zoom').label, rowOf(win, 'text').label, sharpRow(win).label],
+      ['主界面', '缩放', '文字缩放', '高清界面']);
     assert.equal(rowOf(win, 'zoom').number, '1.20');
   });
 
@@ -787,10 +834,10 @@ if (!gameFilesExist) {
   });
 
   test('OutSetting: after install, the ready call of a new OutSetting frame adds the panel', async (t) => {
-    const frames = {};
+    const frames: Record<string, Win> = {};
     const root = makeRoot(t, frames);
-    const calls = [];
-    root.notifyPageReady = (pageId) => { calls.push(pageId); };
+    const calls: string[] = [];
+    root.notifyPageReady = (pageId: string) => { calls.push(pageId); };
     run(root, installCall(null, 0.9));
 
     frames.OutSetting = await loadPage(t, 'OutSetting');
@@ -819,30 +866,35 @@ if (!gameFilesExist) {
   });
 
   // Preview, save, and reset. The root gets a vuplex stub that records each message to C#.
-  // t.mock.timers is enabled only after the pages load, because it replaces the setTimeout that the
+  // The fake timers start only after the pages load, because they replace the setTimeout that the
   // load timeout and the page's own timers use.
 
-  async function settingsSetup(t, zoom, textScale) {
+  function fakeTimers(t: TestContext) {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    t.onTestFinished(() => { vi.useRealTimers(); });
+  }
+
+  async function settingsSetup(t: TestContext, zoom: number | null, textScale: number | null) {
     const frames = { CoreUI1: await loadPage(t, 'CoreUI1'), OutSetting: await loadPage(t, 'OutSetting') };
     const root = makeRoot(t, frames);
-    const sent = [];
-    root.vuplex = { postMessage: (m) => { sent.push(m); } };
+    const sent: string[] = [];
+    root.vuplex = { postMessage: (m: string) => { sent.push(m); } };
     run(root, installCall(zoom, textScale));
     const zoomWrites = spyZoom(frames.CoreUI1);
     return { root, sent, zoomWrites, core1: frames.CoreUI1, out: frames.OutSetting };
   }
 
-  function setMessage(zoom, textScale) {
+  function setMessage(zoom: number, textScale: number): string {
     return `3\x1EOutSetting\x1EHUDSCALE_SET\x1E${zoom},${textScale}`;
   }
 
-  async function openWindow(out, sent) {
+  async function openWindow(out: Win, sent: string[]) {
     out.document.getElementById('settingsModal').classList.add('active');
     await Promise.resolve();
     sent.length = 0;
   }
 
-  function slide(out, key, value, type) {
+  function slide(out: Win, key: string, value: number, type?: string) {
     const input = rowOf(out, key).input;
     input.value = String(value);
     input.dispatchEvent(new out.Event(type || 'input'));
@@ -851,13 +903,13 @@ if (!gameFilesExist) {
   test('settings: a drag shows the number at once and applies to the HUD after 120 ms', async (t) => {
     const s = await settingsSetup(t, 1, null);
     await openWindow(s.out, s.sent);
-    t.mock.timers.enable({ apis: ['setTimeout'] });
+    fakeTimers(t);
 
     slide(s.out, 'zoom', 1.2);
     assert.equal(rowOf(s.out, 'zoom').number, '1.20');
-    t.mock.timers.tick(119);
+    vi.advanceTimersByTime(119);
     assert.deepEqual(s.zoomWrites, []);
-    t.mock.timers.tick(1);
+    vi.advanceTimersByTime(1);
 
     assert.deepEqual(s.zoomWrites, ['1.2']);
     assert.deepEqual(s.sent, []);
@@ -866,14 +918,14 @@ if (!gameFilesExist) {
   test('settings: a fast drag applies only the last value, one time', async (t) => {
     const s = await settingsSetup(t, 1, null);
     await openWindow(s.out, s.sent);
-    t.mock.timers.enable({ apis: ['setTimeout'] });
+    fakeTimers(t);
 
     slide(s.out, 'zoom', 1.05);
-    t.mock.timers.tick(60);
+    vi.advanceTimersByTime(60);
     slide(s.out, 'zoom', 1.1);
-    t.mock.timers.tick(60);
+    vi.advanceTimersByTime(60);
     slide(s.out, 'zoom', 1.15);
-    t.mock.timers.tick(120);
+    vi.advanceTimersByTime(120);
 
     assert.deepEqual(s.zoomWrites, ['1.15']);
   });
@@ -882,11 +934,11 @@ if (!gameFilesExist) {
     const s = await settingsSetup(t, 1, null);
     const rule = fontOf12pxRule(s.core1);
     await openWindow(s.out, s.sent);
-    t.mock.timers.enable({ apis: ['setTimeout'] });
+    fakeTimers(t);
 
     slide(s.out, 'text', 0.9);
     slide(s.out, 'text', 0.9, 'change');
-    t.mock.timers.tick(500);
+    vi.advanceTimersByTime(500);
 
     assert.equal(rule.style.getPropertyValue('font-size'), '10.8px');
     assert.deepEqual(s.sent, [setMessage(1, 0.9)]);
@@ -904,13 +956,41 @@ if (!gameFilesExist) {
     assert.deepEqual(s.sent, [setMessage(1, 1)]);
   });
 
+  function sharpMessage(on: boolean): string {
+    return `3\x1EOutSetting\x1EHUDSCALE_SHARP\x1E${on ? 1 : 0}`;
+  }
+
+  function turnSharp(out: Win, on: boolean) {
+    const input = sharpRow(out).input;
+    input.checked = on;
+    input.dispatchEvent(new out.Event('change'));
+  }
+
+  test('settings: a turn of the Sharp UI switch sends its value', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+    await openWindow(s.out, s.sent);
+
+    turnSharp(s.out, false);
+    turnSharp(s.out, true);
+
+    assert.deepEqual(s.sent, [sharpMessage(false), sharpMessage(true)]);
+  });
+
+  test('settings: a turn of the Sharp UI switch while the window is closed sends nothing', async (t) => {
+    const s = await settingsSetup(t, 1, null);
+
+    turnSharp(s.out, false);
+
+    assert.deepEqual(s.sent, []);
+  });
+
   test('settings: slider events while the window is closed change nothing', async (t) => {
     const s = await settingsSetup(t, 1, null);
-    t.mock.timers.enable({ apis: ['setTimeout'] });
+    fakeTimers(t);
 
     slide(s.out, 'zoom', 1.2);
     slide(s.out, 'zoom', 1.2, 'change');
-    t.mock.timers.tick(500);
+    vi.advanceTimersByTime(500);
 
     assert.equal(rowOf(s.out, 'zoom').number, '1.00');
     assert.deepEqual(s.zoomWrites, []);
@@ -921,7 +1001,7 @@ if (!gameFilesExist) {
 
   const SYNC_MESSAGE = '3\x1EOutSetting\x1EHUDSCALE_SYNC\x1E';
 
-  function modalOf(out) {
+  function modalOf(out: Win): Win {
     return out.document.getElementById('settingsModal');
   }
 
@@ -953,9 +1033,9 @@ if (!gameFilesExist) {
   test('settings: a close after a preview saves the previewed value', async (t) => {
     const s = await settingsSetup(t, 1, null);
     await openWindow(s.out, s.sent);
-    t.mock.timers.enable({ apis: ['setTimeout'] });
+    fakeTimers(t);
     slide(s.out, 'zoom', 1.15);
-    t.mock.timers.tick(120);
+    vi.advanceTimersByTime(120);
 
     modalOf(s.out).classList.remove('active');
     await flushObservers();
@@ -967,12 +1047,12 @@ if (!gameFilesExist) {
   test('settings: a close during the preview delay applies and saves the dragged value', async (t) => {
     const s = await settingsSetup(t, 1, null);
     await openWindow(s.out, s.sent);
-    t.mock.timers.enable({ apis: ['setTimeout'] });
+    fakeTimers(t);
     slide(s.out, 'zoom', 1.15);
 
     modalOf(s.out).classList.remove('active');
     await flushObservers();
-    t.mock.timers.tick(500);
+    vi.advanceTimersByTime(500);
 
     assert.deepEqual(s.zoomWrites, ['1.15']);
     assert.deepEqual(s.sent, [setMessage(1.15, 1)]);
@@ -1002,10 +1082,10 @@ if (!gameFilesExist) {
   });
 
   test('settings: a new OutSetting document gets its own window observer', async (t) => {
-    const frames = {};
+    const frames: Record<string, Win> = {};
     const root = makeRoot(t, frames);
-    const sent = [];
-    root.vuplex = { postMessage: (m) => { sent.push(m); } };
+    const sent: string[] = [];
+    root.vuplex = { postMessage: (m: string) => { sent.push(m); } };
     root.notifyPageReady = () => {};
     run(root, installCall(1, null));
     frames.OutSetting = await loadPage(t, 'OutSetting');
@@ -1021,7 +1101,7 @@ if (!gameFilesExist) {
 
   // An install from C# during a drag. jsdom has no PointerEvent, so a plain Event stands in.
 
-  function pointer(out, key, type) {
+  function pointer(out: Win, key: string, type: string) {
     rowOf(out, key).input.dispatchEvent(new out.Event(type));
   }
 
@@ -1055,15 +1135,26 @@ if (!gameFilesExist) {
   test('settings: an install keeps an unsaved preview, and the close saves the preview', async (t) => {
     const s = await settingsSetup(t, 1, null);
     await openWindow(s.out, s.sent);
-    t.mock.timers.enable({ apis: ['setTimeout'] });
+    fakeTimers(t);
     pointer(s.out, 'zoom', 'pointerdown');
     slide(s.out, 'zoom', 1.15);
-    t.mock.timers.tick(120);
+    vi.advanceTimersByTime(120);
 
     run(s.root, installCall(1, 0.9));
     modalOf(s.out).classList.remove('active');
     await flushObservers();
 
     assert.deepEqual(s.sent, [setMessage(1.15, 0.9)]);
+  });
+
+  // The short command of C# (HudScaleLogic.InstallCommand): it gives 'no script' in a root page with
+  // no page script, so C# sends the full script, and the install result in a root page with it.
+  test('send once: the short command gives no script before the script and installed after it', (t) => {
+    const root = makeRoot(t, {});
+    const command = `window.__hudscale?${installCall(1, null)}:'no script'`;
+
+    assert.equal(vm.runInContext(command, root), 'no script');
+    run(root, '');
+    assert.equal(vm.runInContext(command, root), 'installed');
   });
 }

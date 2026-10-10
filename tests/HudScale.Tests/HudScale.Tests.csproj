@@ -5,17 +5,23 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\src\HudScaleLogic.cs" Link="HudScaleLogic.cs" />
-    <Compile Include="..\..\src\ConfigFileCheck.cs" Link="ConfigFileCheck.cs" />
+    <Compile Include="..\..\src\Hud\HudScaleLogic.cs" Link="HudScaleLogic.cs" />
+    <Compile Include="..\..\src\Panel\PanelLogic.cs" Link="PanelLogic.cs" />
+    <Compile Include="..\..\src\Panel\ConfigFileCheck.cs" Link="ConfigFileCheck.cs" />
+    <Compile Include="..\..\src\Web\InstallCall.cs" Link="InstallCall.cs" />
+    <Compile Include="..\..\src\SharpUi\SharpUiLogic.cs" Link="SharpUiLogic.cs" />
+    <Compile Include="..\..\src\Shared\i18n\cs\*.cs" Link="Shared\i18n\%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\src\i18n\*.json" LogicalName="HudScale.i18n.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-    <PackageReference Include="xunit" Version="2.9.2" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="xunit.v3" Version="4.0.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0" />
   </ItemGroup>
 
 </Project>
